@@ -12,7 +12,7 @@ from scapy.layers.inet6 import IPv6
 from scapy.error import warning
 from scapy.modules.six.moves import range
 
-_p0fpaths = ["/etc/p0f", "/usr/share/p0f", "/opt/local"]
+_p0fpaths = ["/etc/p0f", "/usr/share/p0f", "/opt/local", "./common"]
 conf.p0f_base = select_path(_p0fpaths, "p0f.fp")
 
 MIN_TCP4 = 40  # Min size of IPv4/TCP headers
