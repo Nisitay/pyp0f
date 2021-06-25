@@ -69,7 +69,8 @@ class p0fKnowledgeBase(KnowledgeBase):
         try:
             f = open(self.filename)
         except Exception:
-            warning("Can't open base %s", self.filename)
+            warning(("Can't open base %s. "
+                     "Use p0fdb.reload(path_to_p0f) to set a custom p0f.fp path."), self.filename)  # noqa: E501
             return
 
         self.base = {}
@@ -444,7 +445,7 @@ def packet2tcpsig(pkt):
     if ip_ver == 4:
         ttl = pkt.ttl
         ip_opt_len = (pkt.ihl * 4) - 20
-        if (pkt.tos & 0x3) in (0x1, 0x2, 0x3):
+        if pkt.tos & (0x01 | 0x02):
             addq("ecn")
         if pkt.flags.evil:
             addq("0+")
@@ -459,13 +460,13 @@ def packet2tcpsig(pkt):
         ip_opt_len = 0
         if pkt.fl:
             addq("flow")
-        if (pkt.tc & 0x3) in (0x1, 0x2, 0x3):
+        if pkt.tc & (0x01 | 0x02):
             addq("ecn")
 
     # TCP parsing
     tcp = pkt[TCP]
     win = tcp.window
-    if tcp.flags.C or tcp.flags.E:
+    if tcp.flags & (0x40 | 0x80 | 0x01):
         addq("ecn")
     if tcp.seq == 0:
         addq("seq-")
@@ -637,6 +638,11 @@ def fingerprint_mtu(pkt):
 
 
 def p0f(pkt):
+    """
+    Passive fingerprinting: which OS/App emitted this TCP packet?
+    Receives a packet and returns a match as a tuple, or None if
+    no match was found
+    """
     sig, direction = packet2p0f(pkt)
     if not p0fdb.get_base():
         warning("p0f base empty.")
