@@ -25,28 +25,8 @@ WIN_TYPE_MOD = 2  # Modulo check
 WIN_TYPE_MSS = 3  # Window size MSS multiplier
 WIN_TYPE_MTU = 4  # Window size MTU multiplier
 
-quirks_p0f = {
-    "df": 0,  # don't fragment flag
-    "id+": 1,  # df set but IPID non-zero
-    "id-": 2,  # df not set but IPID zero
-    "ecn": 3,  # explicit confestion notification support
-    "0+": 4,  # 'must be zero' field not zero
-    "flow": 5,  # non-zero IPv6 flow ID
-    "seq-": 6,  # sequence number is zero
-    "ack+": 7,  # ACK number is non-zero but ACK flag is not set
-    "ack-": 8,  # ACK number is zero but ACK flag is set
-    "uptr+": 9,  # URG pointer is non-zero but URG flag not set
-    "urgf+": 10,  # URG flag used
-    "pushf+": 11,  # PUSH flag used
-    "ts1-": 12,  # own timestamp specified as zero
-    "ts2+": 13,  # non-zero peer timestamp on initial SYN
-    "opt+": 14,  # trailing non-zero data in options segment
-    "exws": 15,  # excessive window scaling factor ( > 14)
-    "bad": 16  # malformed tcp options
-}
-
-options_p0f = {
-    1: "nop",  # no-op option
+# Convert TCP option num to p0f (nop is handeled seperately)
+tcp_options_p0f = {
     2: "mss",  # maximum segment size
     3: "ws",  # window scaling
     4: "sok",  # selective ACK permitted
@@ -151,7 +131,7 @@ class p0fKnowledgeBase(KnowledgeBase):
             win, win_type = (int(wsize), WIN_TYPE_NORMAL)
         wscale = -1 if scale == "*" else int(scale)
         if quirks:
-            quirks = frozenset(quirks_p0f[q] for q in quirks.split(","))
+            quirks = frozenset(q for q in quirks.split(","))
         else:
             quirks = frozenset()
         pay_class = -1 if pclass == "*" else int(pclass == "+")
@@ -203,15 +183,15 @@ class p0fKnowledgeBase(KnowledgeBase):
 
             if ver2 == -1:
                 if ver == 4:
-                    quirks2 -= {quirks_p0f["flow"]}
+                    quirks2 -= {"flow"}
                 else:
-                    quirks2 -= {quirks_p0f[q] for q in ("df", "id+", "id-")}
+                    quirks2 -= {"df", "id+", "id-"}
             if quirks2 != quirks:
                 deleted = (quirks2 ^ quirks) & quirks2
                 added = (quirks2 ^ quirks) & quirks
 
-                if (fmatch or (deleted - {quirks_p0f["df"], quirks_p0f["id+"]}) or  # noqa:E501
-                   (added - {quirks_p0f["id-"], quirks_p0f["ecn"]})):
+                if (fmatch or (deleted - {"df", "id+"}) or  # noqa:E501
+                   (added - {"id-", "ecn"})):
                     continue
                 fuzzy = True
 
@@ -379,7 +359,7 @@ def detect_win_multi(tcpsig):
         return -1, False
 
     ip_ver, olayout, quirks = tcpsig[0], tcpsig[6], tcpsig[7]
-    ts1 = "ts" in olayout and quirks_p0f["ts1-"] not in quirks
+    ts1 = "ts" in olayout and "ts1-" not in quirks
     options = [
         (mss, False),
         (1500 - MIN_TCP4, False),
@@ -439,7 +419,7 @@ def packet2tcpsig(pkt):
     quirks = set()
 
     def addq(name):
-        quirks.add(quirks_p0f[name])
+        quirks.add(name)
 
     # IPv4/IPv6 parsing
     if ip_ver == 4:
@@ -508,9 +488,9 @@ def packet2tcpsig(pkt):
             addq("bad")
             break
         oval = x[2:olen]
-        if onum in options_p0f:
+        if onum in tcp_options_p0f:
             ofmt = TCPOptions[0][onum][1]
-            olayout += "%s," % options_p0f[onum]
+            olayout += "%s," % tcp_options_p0f[onum]
             optsize = 2 + struct.calcsize(ofmt) if ofmt else 2  # total size
             if len(x) < optsize:  # option would end past end of header
                 addq("bad")
