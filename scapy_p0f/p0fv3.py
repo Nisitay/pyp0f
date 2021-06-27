@@ -12,7 +12,7 @@ from scapy.error import warning
 from scapy_p0f.utils import lparse
 from scapy_p0f.consts import MIN_TCP4, MIN_TCP6, MAX_DIST, WIN_TYPE_NORMAL, \
     WIN_TYPE_MOD, WIN_TYPE_MSS, WIN_TYPE_MTU
-from scapy_p0f.types import TCP_Signature, HTTP_Signature, MTU_Record, \
+from scapy_p0f.base_classes import TCP_Signature, HTTP_Signature, MTU_Record, \
     TCP_Record, HTTP_Record
 
 _p0fpaths = ["/etc/p0f", "/usr/share/p0f", "/opt/local", "./common"]
