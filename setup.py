@@ -2,6 +2,12 @@ from setuptools import setup
 import os
 import io
 
+workdir = os.path.abspath(os.path.dirname(__file__))
+
+# https://packaging.python.org/single_source_version/
+with open(os.path.join(workdir, "scapy_p0f", "__init__.py")) as fp:
+    __version__ = fp.read().split('__version__ = "', 1)[1].split('"', 1)[0]
+
 
 def get_long_description():
     """Extract description from README.md, for PyPI's usage"""
@@ -16,7 +22,7 @@ def get_long_description():
 
 setup(
     name="scapy-p0f",
-    version="1.0.0",
+    version=__version__,
     description="p0f v3 clone written in Python",
     long_description=get_long_description(),
     long_description_content_type="text/markdown",
