@@ -39,6 +39,7 @@ The `prnp0f` function simply calls `p0f` and returns a user-friendly output, emu
 | Raw sig  = 4:56+8:0:1460:5792,5:mss,sok,ts,nop,ws:df:0
 `____
 ```
+
 ### fingerprint_mtu Function
 The `fingerprint_mtu` function fingerprints the MTU based on the maximum segment size specified in TCP options.
 The function receives a `Scapy` TCP packet, and returns a MTU match (or None if no match was found):
@@ -47,8 +48,6 @@ The function receives a `Scapy` TCP packet, and returns a MTU match (or None if 
 >>> scapy_p0f.fingerprint_mtu(pkt)
 "Ethernet or modem"
 ```
-
-
 
 ## Authors
 - **Itay Margolin** - [Nisitay](https://github.com/Nisitay)

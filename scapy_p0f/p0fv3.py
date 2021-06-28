@@ -15,7 +15,7 @@ from scapy_p0f.consts import MIN_TCP4, MIN_TCP6, MAX_DIST, WIN_TYPE_NORMAL, \
 from scapy_p0f.base_classes import TCP_Signature, HTTP_Signature, MTU_Record, \
     TCP_Record, HTTP_Record
 
-_p0fpaths = ["/etc/p0f", "/usr/share/p0f", "/opt/local", "./common"]
+_p0fpaths = ["/etc/p0f", "/usr/share/p0f", "/opt/local", "scapy_p0f/data"]
 conf.p0f_base = select_path(_p0fpaths, "p0f.fp")
 
 
