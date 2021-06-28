@@ -1,5 +1,6 @@
 from __future__ import absolute_import
 from __future__ import print_function
+import os
 
 from scapy.data import KnowledgeBase, select_path
 from scapy.config import conf
@@ -15,7 +16,8 @@ from scapy_p0f.consts import MIN_TCP4, MIN_TCP6, MAX_DIST, WIN_TYPE_NORMAL, \
 from scapy_p0f.base_classes import TCP_Signature, HTTP_Signature, MTU_Record, \
     TCP_Record, HTTP_Record
 
-_p0fpaths = ["/etc/p0f", "/usr/share/p0f", "/opt/local", "data"]
+_p0fpaths = ["/etc/p0f", "/usr/share/p0f", "/opt/local"]
+_p0fpaths.append(os.path.join(os.path.dirname(__file__), "data"))
 conf.p0f_base = select_path(_p0fpaths, "p0f.fp")
 
 
