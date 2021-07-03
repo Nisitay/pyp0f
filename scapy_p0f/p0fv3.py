@@ -1,18 +1,22 @@
 from __future__ import absolute_import
 from __future__ import print_function
 import os
+import struct
+import random
 
 from scapy.data import KnowledgeBase, select_path
 from scapy.config import conf
 from scapy.compat import raw
+from scapy.packet import NoPayload
 from scapy.layers.inet import IP, TCP
 from scapy.layers.inet6 import IPv6
 from scapy.layers.http import HTTP, HTTPRequest, HTTPResponse
+from scapy.volatile import RandByte, RandShort, RandString
 from scapy.error import warning
+from scapy.modules.six import string_types, integer_types
 
 from scapy_p0f.utils import lparse
-from scapy_p0f.consts import MIN_TCP4, MIN_TCP6, MAX_DIST, WIN_TYPE_NORMAL, \
-    WIN_TYPE_MOD, WIN_TYPE_MSS, WIN_TYPE_MTU
+from scapy_p0f.consts import MIN_TCP4, MIN_TCP6, MAX_DIST, WinType, TCPFlag
 from scapy_p0f.base_classes import TCP_Signature, HTTP_Signature, MTU_Record, \
     TCP_Record, HTTP_Record
 
@@ -93,6 +97,27 @@ class p0fKnowledgeBase(KnowledgeBase):
                     sys_names = tuple(name for name in val.split(","))
                     self.labels[label_id] += (sys_names,)
 
+    def get_sigs_by_os(self, direction, osgenre, osdetails=None):
+        """Get TCP signatures that match an OS genre and details (if specified).
+        If osdetails isn't specified, then we pick all signatures
+        that match osgenre.
+
+        Examples:
+            >>> p0fdb.get_sigs_by_os("request", "Linux", "2.6")
+            >>> p0fdb.get_sigs_by_os("response", "Windows", "8")
+            >>> p0fdb.get_sigs_by_os("request", "FreeBSD")"""
+        sigs = []
+        for tcp_record in self.base["tcp"][direction]:
+            label = self.labels[tcp_record.label_id]
+            name, flavor = label[2], label[3]
+            if osgenre and osgenre == name:
+                if osdetails:
+                    if osdetails in flavor:
+                        sigs.append(tcp_record.sig)
+                else:
+                    sigs.append(tcp_record.sig)
+        return sigs
+
     def tcp_find_match(self, ts, direction):
         """
         Finds the best match for the given signature and direction.
@@ -140,16 +165,16 @@ class p0fKnowledgeBase(KnowledgeBase):
                (rs.pay_class != -1 and rs.pay_class != ts.pay_class)):
                 continue
 
-            if rs.win_type == WIN_TYPE_NORMAL:
+            if rs.win_type == WinType.NORMAL:
                 if rs.win != ts.win:
                     continue
-            elif rs.win_type == WIN_TYPE_MOD:
+            elif rs.win_type == WinType.MOD:
                 if ts.win % rs.win:
                     continue
-            elif rs.win_type == WIN_TYPE_MSS:
+            elif rs.win_type == WinType.MSS:
                 if (use_mtu or rs.win != win_multi):
                     continue
-            elif rs.win_type == WIN_TYPE_MTU:
+            elif rs.win_type == WinType.MTU:
                 if (not use_mtu or rs.win != win_multi):
                     continue
 
@@ -249,22 +274,14 @@ class p0fKnowledgeBase(KnowledgeBase):
 p0fdb = p0fKnowledgeBase(conf.p0f_base)
 
 
-def preprocess_packet(pkt):
+def validate_packet(pkt):
     """
-    Creates a copy of the packet and checks if the packet is
-    an IPv4/IPv6 and TCP packet. If the packet is valid,
-    the copy is returned. If not, TypeError is raised.
+    Validated that the packet is an IPv4/IPv6 and TCP packet.
+    If the packet is valid, a copy is returned. If not, TypeError is raised.
     """
     pkt = pkt.copy()
-    pkt = pkt.__class__(raw(pkt))
-    while pkt.haslayer(IP) and pkt.haslayer(TCP):
-        pkt = pkt.getlayer(IP)
-        if isinstance(pkt.payload, TCP):
-            break
-        pkt = pkt.payload
-
-    if ((not isinstance(pkt, IPv6) and not isinstance(pkt, IP)) or
-       not isinstance(pkt.payload, TCP)):
+    valid = pkt.haslayer(TCP) and (pkt.haslayer(IP) or pkt.haslayer(IPv6))
+    if not valid:
         raise TypeError("Not a TCP/IP packet")
     return pkt
 
@@ -305,7 +322,8 @@ def packet2p0f(pkt):
     Returns a p0f signature of the packet, and the direction.
     Raises TypeError if the packet isn't valid for p0f
     """
-    pkt = preprocess_packet(pkt)
+    pkt = validate_packet(pkt)
+    pkt = pkt.__class__(raw(pkt))
 
     if pkt[TCP].flags.S:
         if pkt[TCP].flags.A:
@@ -335,7 +353,7 @@ def fingerprint_mtu(pkt):
     in TCP options.
     If a match was found, returns the label. If not returns None
     """
-    pkt = preprocess_packet(pkt)
+    pkt = validate_packet(pkt)
     mss = 0
     for name, value in pkt.payload.options:
         if name == "MSS":
@@ -412,3 +430,204 @@ def prnp0f(pkt):
     res += "".join(fields)
     res += "`____\n"
     print(res)
+
+
+def p0f_impersonate(pkt, osgenre=None, osdetails=None, signature=None,
+                    extrahops=0, mtu=1500, uptime=None):
+    """Modifies pkt so that p0f will think it has been sent by a
+    specific OS. Either osgenre or signature is required to impersonate.
+    If signature is specified (as a raw string), we use the signature.
+    signature format:
+        "ip_ver:ttl:ip_opt_len:mss:window,wscale:opt_layout:quirks:pay_class"
+
+    If osgenre is specified, we randomly pick a signature with a label
+    that matches osgenre (and osdetails, if specified).
+    Note: osgenre is case sensitive ("linux" -> "Linux" etc.), and osdetails
+    is a substring of a label flavor ("7", "8" and "7 or 8" will
+    all match the label "s:win:Windows:7 or 8")
+
+    For now, only TCP SYN/SYN+ACK packets are supported."""
+    pkt = validate_packet(pkt)
+
+    if not osgenre and not signature:
+        raise ValueError("osgenre or signature is required to impersonate!")
+
+    tcp = pkt[TCP]
+    tcp_type = tcp.flags & (TCPFlag.SYN | TCPFlag.ACK)  # SYN / SYN+ACK
+
+    if signature:
+        if isinstance(signature, string_types):
+            sig, _ = TCP_Signature.from_raw_sig(signature)
+        else:
+            raise TypeError("Unsupported signature type")
+    else:
+        if not p0fdb.get_base():
+            sigs = []
+        else:
+            direction = "request" if tcp_type == TCPFlag.SYN else "response"
+            sigs = p0fdb.get_sigs_by_os(direction, osgenre, osdetails)
+
+        # If IPv6 packet, remove IPv4-only signatures and vice versa
+        sigs = [s for s in sigs if s.ip_ver == -1 or s.ip_ver == pkt.version]
+        if not sigs:
+            raise ValueError("No match in the p0f database")
+        sig = random.choice(sigs)
+
+    if sig.ip_ver != -1 and pkt.version != sig.ip_ver:
+        raise ValueError("Can't convert between IPv4 and IPv6")
+
+    quirks = sig.quirks
+
+    if pkt.version == 4:
+        pkt.ttl = sig.ttl - extrahops
+        if sig.ip_opt_len != 0:
+            # FIXME: Non-zero IPv4 options not handled
+            warning("Unhandled IPv4 options field")
+        else:
+            pkt.options = []
+
+        if "df" in quirks:
+            pkt.flags |= 0x02  # set DF flag
+            if "id+" in quirks:
+                if pkt.id == 0:
+                    pkt.id = random.randint(1, 2**16 - 1)
+            else:
+                pkt.id = 0
+        else:
+            pkt.flags &= ~(0x02)  # DF flag not set
+            if "id-" in quirks:
+                pkt.id = 0
+            elif pkt.id == 0:
+                pkt.id = random.randint(1, 2**16 - 1)
+        if "ecn" in quirks:
+            pkt.tos |= random.randint(0x01, 0x03)
+        pkt.flags = pkt.flags | 0x04 if "0+" in quirks else pkt.flags & ~(0x04)
+    else:
+        pkt.hlim = sig.ttl - extrahops
+        if "flow" in quirks:
+            pkt.fl = random.randint(1, 2**20 - 1)
+        if "ecn" in quirks:
+            pkt.tc |= random.randint(0x01, 0x03)
+
+    # Take the options already set as "hints" to use in the new packet if we
+    # can. we'll use the already-set values if they're valid integers.
+    def int_only(val):
+        return val if isinstance(val, integer_types) else None
+    orig_opts = dict(tcp.options)
+    mss_hint = int_only(orig_opts.get("MSS"))
+    ws_hint = int_only(orig_opts.get("WScale"))
+    ts_hint = [int_only(o) for o in orig_opts.get("Timestamp", (None, None))]
+
+    options = []
+    for opt in sig.olayout.split(","):
+        if opt == "mss":
+            # MSS might have a maximum size because of WIN_TYPE_MSS
+            if sig.win_type == WinType.MSS:
+                maxmss = (2**16 - 1) // sig.win
+            else:
+                maxmss = (2**16 - 1)
+
+            if sig.mss == -1:  # wildcard mss
+                if mss_hint and 0 <= mss_hint <= maxmss:
+                    options.append(("MSS", mss_hint))
+                else:  # invalid hint, generate new value
+                    options.append(("MSS", random.randint(1, maxmss)))
+            else:
+                options.append(("MSS", sig.mss))
+
+        elif opt == "ws":
+            if sig.wscale == -1:  # wildcard wscale
+                maxws = 2**8
+                if "exws" in quirks:  # wscale > 14
+                    if ws_hint and 14 < ws_hint < maxws:
+                        options.append(("WScale", ws_hint))
+                    else:  # invalid hint, generate new value > 14
+                        options.append(("WScale", random.randint(15, maxws-1)))
+                else:
+                    if ws_hint and 0 <= ws_hint < maxws:
+                        options.append(("WScale", ws_hint))
+                    else:  # invalid hint, generate new value
+                        options.append(("WScale", RandByte()))
+            else:
+                options.append(("WScale", sig.wscale))
+
+        elif opt == "ts":
+            ts1, ts2 = ts_hint
+
+            if "ts1-" in quirks:  # own timestamp specified as zero
+                ts1 = 0
+            elif uptime is not None:  # if specified uptime, override
+                ts1 = uptime
+            elif ts1 is None or not (0 < ts1 < 2**32):  # invalid hint
+                ts1 = random.randint(120, 100*60*60*24*365)
+
+            # non-zero peer timestamp on initial SYN
+            if "ts2+" in quirks and tcp_type == TCPFlag.SYN:
+                if ts2 is None or not (0 < ts2 < 2**32):  # invalid hint
+                    ts2 = random.randint(1, 2**32 - 1)
+            else:
+                ts2 = 0
+            options.append(("Timestamp", (ts1, ts2)))
+
+        elif opt == "nop":
+            options.append(("NOP", None))
+        elif opt == "sok":
+            options.append(("SAckOK", ""))
+        elif opt[:3] == "eol":
+            options.append(("EOL", None))
+            # FIXME: opt+ quirk not handled
+        elif opt == "sack":
+            # Randomize SAck value in range 10 <= val <= 34
+            sack_len = random.choice([10, 18, 26, 34]) - 2
+            optstruct = "!%iI" % (sack_len // 4)
+            rand_val = RandString(struct.calcsize(optstruct))._fix()
+            options.append(("SAck", struct.unpack(optstruct, rand_val)))
+        else:
+            warning("unhandled TCP option %s", opt)
+        tcp.options = options
+
+    if sig.win_type == WinType.NORMAL:
+        tcp.window = sig.win
+    elif sig.win_type == WinType.MSS:
+        mss = [x for x in options if x[0] == "MSS"]
+        if not mss:
+            raise ValueError("TCP window value requires MSS, and MSS option not set")  # noqa: E501
+        tcp.window = mss[0][1] * sig.win
+    elif sig.win_type == WinType.MOD:
+        tcp.window = sig.win * random.randint(1, (2**16 - 1) // sig.win)
+    elif sig.win_type == WinType.MTU:
+        tcp.window = mtu * sig.win
+    elif sig.win_type == WinType.ANY:
+        tcp.window = RandShort()
+    else:
+        warning("Unhandled window size specification")
+
+    if "seq-" in quirks:
+        tcp.seq = 0
+    elif tcp.seq == 0:
+        tcp.seq = random.randint(1, 2**32 - 1)
+
+    if "ack+" in quirks:
+        tcp.flags &= ~(TCPFlag.ACK)  # ACK flag not set
+        if tcp.ack == 0:
+            tcp.ack = random.randint(1, 2**32 - 1)
+    elif "ack-" in quirks:
+        tcp.flags |= TCPFlag.ACK  # ACK flag set
+        tcp.ack = 0
+
+    if "uptr+" in quirks:
+        tcp.flags &= ~(TCPFlag.URG)  # URG flag not set
+        if tcp.urgptr == 0:
+            tcp.urgptr = random.randint(1, 2**16 - 1)
+    elif "urgf+" in quirks:
+        tcp.flags |= TCPFlag.URG  # URG flag used
+
+    tcp.flags = tcp.flags | TCPFlag.PUSH if "pushf+" in quirks else tcp.flags & ~(TCPFlag.PUSH)  # noqa: E501
+
+    if sig.pay_class:  # signature has payload
+        if not tcp.payload:
+            pkt /= conf.raw_layer(load=RandString(random.randint(1, 10)))
+    else:
+        tcp.payload = NoPayload()
+
+    return pkt

@@ -5,11 +5,10 @@ from scapy.compat import raw, orb
 from scapy.layers.inet import TCP, TCPOptions
 
 from scapy_p0f.utils import lparse, guess_dist
-from scapy_p0f.consts import WIN_TYPE_NORMAL, WIN_TYPE_ANY, WIN_TYPE_MOD, \
-    WIN_TYPE_MSS, WIN_TYPE_MTU
+from scapy_p0f.consts import WinType
 
 
-# Convert TCP option num to p0f (nop is handeled seperately)
+# Convert TCP option num to p0f (nop is handled seperately)
 tcp_options_p0f = {
     2: "mss",  # maximum segment size
     3: "ws",  # window scaling
@@ -173,15 +172,15 @@ class TCP_Signature(object):
         ip_opt_len = int(olen)
         mss = -1 if mss == "*" else int(mss)
         if wsize == "*":
-            win, win_type = (0, WIN_TYPE_ANY)
+            win, win_type = (0, WinType.ANY)
         elif wsize[:3] == "mss":
-            win, win_type = (int(wsize[4:]), WIN_TYPE_MSS)
+            win, win_type = (int(wsize[4:]), WinType.MSS)
         elif wsize[0] == "%":
-            win, win_type = (int(wsize[1:]), WIN_TYPE_MOD)
+            win, win_type = (int(wsize[1:]), WinType.MOD)
         elif wsize[:3] == "mtu":
-            win, win_type = (int(wsize[4:]), WIN_TYPE_MTU)
+            win, win_type = (int(wsize[4:]), WinType.MTU)
         else:
-            win, win_type = (int(wsize), WIN_TYPE_NORMAL)
+            win, win_type = (int(wsize), WinType.NORMAL)
         wscale = -1 if scale == "*" else int(scale)
         if quirks:
             quirks = frozenset(q for q in quirks.split(","))
