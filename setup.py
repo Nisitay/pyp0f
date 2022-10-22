@@ -1,5 +1,7 @@
 import os
 import re
+from codecs import open
+
 from setuptools import setup, find_packages
 
 HERE = os.path.abspath(os.path.dirname(__file__))
@@ -10,31 +12,42 @@ def read(*parts):
         return f.read()
 
 
-def get_version():
-    """
-    Return version as listed in `__version__` in `__init__.py`.
-    """
-    init_py = read(os.path.join("pyp0f", "__init__.py"))
-    match = re.search(r"__version__ = ['\"]([^'\"]*)['\"]", init_py)
+with open(os.path.join(HERE, "README.md"), encoding="utf-8") as f:
+    long_description = f.read()
+
+with open(os.path.join(HERE, "pyp0f", "__init__.py")) as f:
+    match = re.search(r'VERSION = "(.+?)"', f.read())
     assert match
-    return match.group(1)
+    VERSION = match.group(1)
 
 
 setup(
     name="pyp0f",
-    version=get_version(),
-    description="p0f (v3) written in Python",
-    long_description=read("README.md"),
+    version=VERSION,
+    description="p0f v3 written in Python",
+    long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/Nisitay/pyp0f",
-    keywords=["fingerprint", "p0f", "scapy", "network", "packets"],
+    url="https://github.com/Nisitay/scapy-p0f",
     author="Itay Margolin",
     author_email="itay62848@gmail.com",
     license="MIT",
-    packages=find_packages(include=("pyp0f", "pyp0f.*")),
     include_package_data=True,
     python_requires=">=3.7",
-    install_requires=["scapy>=2.4.5"],
+    packages=find_packages(
+        include=[
+            "pyp0f",
+            "pyp0f.*"
+        ]
+    ),
+    install_requires=[
+        "scapy>=2.4.5",
+        "h11>=0.11"
+    ],
+    extras_require={
+        "dev": [
+            "pytest>=6.1.0"
+        ]
+    },
     classifiers=[
         "License :: OSI Approved :: MIT License",
         "Development Status :: 4 - Beta",
