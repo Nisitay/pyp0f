@@ -66,7 +66,7 @@ class IP(Layer):
             options_length=header_length - IPV4_HEADER_LENGTH,
             header_length=header_length,
             is_fragment=ip.flags.MF or ip.frag,
-            quirks=quirks
+            quirks=quirks,
         )
 
     @classmethod
@@ -86,7 +86,7 @@ class IP(Layer):
             options_length=0,
             header_length=IPV6_HEADER_LENGTH,
             is_fragment=False,
-            quirks=quirks
+            quirks=quirks,
         )
 
 

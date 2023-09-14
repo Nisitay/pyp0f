@@ -33,21 +33,9 @@ setup(
     license="MIT",
     include_package_data=True,
     python_requires=">=3.7",
-    packages=find_packages(
-        include=[
-            "pyp0f",
-            "pyp0f.*"
-        ]
-    ),
-    install_requires=[
-        "scapy>=2.4.5",
-        "h11>=0.11"
-    ],
-    extras_require={
-        "dev": [
-            "pytest>=6.1.0"
-        ]
-    },
+    packages=find_packages(include=["pyp0f", "pyp0f.*"]),
+    install_requires=["scapy>=2.4.5", "h11>=0.11"],
+    extras_require={"dev": ["pytest>=6.1.0"]},
     classifiers=[
         "License :: OSI Approved :: MIT License",
         "Development Status :: 4 - Beta",
@@ -66,6 +54,6 @@ setup(
         "Topic :: System :: Networking :: Monitoring",
         "Topic :: Software Development :: Libraries",
         "Topic :: Software Development :: Libraries :: Python Modules",
-        "Typing :: Typed"
+        "Typing :: Typed",
     ],
 )

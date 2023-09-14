@@ -8,7 +8,7 @@ from tests._packets.mtu import (
     IPIP_OR_SIT,
     IPSEC_OR_GRE,
     ETHERNET_OR_MODEM,
-    GENERIC_TUNNEL_OR_VPN
+    GENERIC_TUNNEL_OR_VPN,
 )
 
 
@@ -20,7 +20,7 @@ from tests._packets.mtu import (
         (IPSEC_OR_GRE, "IPSec or GRE"),
         (ETHERNET_OR_MODEM, "Ethernet or modem"),
         (GENERIC_TUNNEL_OR_VPN, "generic tunnel or VPN"),
-    ]
+    ],
 )
 def test_fingerprint(packet: Packet, expected_label: str):
     result = fingerprint(packet)

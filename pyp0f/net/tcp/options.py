@@ -8,13 +8,13 @@ from .flags import TcpFlag
 
 
 class TcpOption(IntEnum):
-    EOL = 0     # End of options (1)
-    NOP = 1     # No-op (1)
-    MSS = 2     # Maximum segment size (4)
-    WS = 3      # Window scaling (3)
+    EOL = 0  # End of options (1)
+    NOP = 1  # No-op (1)
+    MSS = 2  # Maximum segment size (4)
+    WS = 3  # Window scaling (3)
     SACKOK = 4  # Selective ACK permitted (2)
-    SACK = 5    # Actual selective ACK (10-34)
-    TS = 8      # Timestamp (10)
+    SACK = 5  # Actual selective ACK (10-34)
+    TS = 8  # Timestamp (10)
 
 
 OPTION_STRINGS = {
@@ -24,7 +24,7 @@ OPTION_STRINGS = {
     TcpOption.WS: "ws",
     TcpOption.SACKOK: "sok",
     TcpOption.SACK: "sack",
-    TcpOption.TS: "ts"
+    TcpOption.TS: "ts",
 }
 
 
@@ -32,7 +32,7 @@ OPTION_FORMATS = {
     TcpOption.WS: Struct("!B"),
     TcpOption.TS: Struct("!II"),
     TcpOption.MSS: Struct("!H"),
-    TcpOption.SACKOK: Struct("")
+    TcpOption.SACKOK: Struct(""),
 }
 
 
@@ -129,7 +129,7 @@ class TcpOptions:
             mss=mss,
             timestamp=timestamp,
             window_scale=window_scale,
-            eol_pad_length=eol_pad_length
+            eol_pad_length=eol_pad_length,
         )
 
     def dump(self) -> str:

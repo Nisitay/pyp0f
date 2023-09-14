@@ -13,7 +13,7 @@ def ip(**kwargs) -> IP:
         options_length=0,
         header_length=IPV4_HEADER_LENGTH,
         is_fragment=False,
-        quirks=Quirk.DF | Quirk.NZ_ID
+        quirks=Quirk.DF | Quirk.NZ_ID,
     )
     default.update(kwargs)
     return IP(**default)
@@ -29,7 +29,7 @@ def tcp(**kwargs) -> TCP:
         options=TcpOptions([], Quirk(0)),
         payload=b"",
         header_length=20,
-        quirks=Quirk(0)
+        quirks=Quirk(0),
     )
     default.update(kwargs)
     return TCP(**default)

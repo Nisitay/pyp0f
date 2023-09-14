@@ -10,7 +10,7 @@ from pyp0f.utils.parse import (
     parse_from_options,
     parse_num_in_range,
     fixed_options_parser,
-    range_num_parser
+    range_num_parser,
 )
 from pyp0f.net.ip import IPV4, IPV6
 from pyp0f.net.packet import Packet
@@ -25,20 +25,12 @@ STRING_QUIRKS = {v: k for k, v in QUIRK_STRINGS.items()}
 STRING_OPTIONS = {v: k for k, v in OPTION_STRINGS.items()}
 INVALID_QUIRKS = {
     IPV4: Quirk.FLOW,
-    IPV6: Quirk.DF | Quirk.NZ_ID | Quirk.ZERO_ID | Quirk.NZ_MBZ
+    IPV6: Quirk.DF | Quirk.NZ_ID | Quirk.ZERO_ID | Quirk.NZ_MBZ,
 }
 
-_parse_ip_version = fixed_options_parser({
-    "*": WILDCARD,
-    "4": IPV4,
-    "6": IPV6
-})
+_parse_ip_version = fixed_options_parser({"*": WILDCARD, "4": IPV4, "6": IPV6})
 
-_parse_payload_class = fixed_options_parser({
-    "*": WILDCARD,
-    "0": 0,
-    "+": 1
-})
+_parse_payload_class = fixed_options_parser({"*": WILDCARD, "0": 0, "+": 1})
 
 _parse_mss = range_num_parser(min=0, max=65535, wildcard=True)
 _parse_win_scale = range_num_parser(min=0, max=255, wildcard=True)
@@ -59,6 +51,7 @@ class _TcpSig:
     """
     Common fields for database & packet TCP signatures.
     """
+
     ip_version: int
     ttl: int
     ip_options_length: int
@@ -87,7 +80,7 @@ class TcpSig(DatabaseSig, _TcpSig):
             window,
             options,
             quirks,
-            payload_class
+            payload_class,
         ) = split_parts(raw_signature, parts=8)
 
         ip_version = _parse_ip_version(ip_ver)
@@ -109,7 +102,7 @@ class TcpSig(DatabaseSig, _TcpSig):
             win_scale=_parse_win_scale(scale),
             options_layout=options_layout,
             payload_class=_parse_payload_class(payload_class),
-            eol_pad_length=eol_pad_length
+            eol_pad_length=eol_pad_length,
         )
 
 
@@ -140,7 +133,7 @@ class TcpPacketSig(PacketSig, _TcpSig):
             has_payload=bool(packet.tcp.payload),
             headers_length=packet.ip.header_length + packet.tcp.header_length,
             options=packet.tcp.options,
-            syn_mss=syn_mss
+            syn_mss=syn_mss,
         )
 
     @property

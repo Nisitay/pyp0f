@@ -25,6 +25,7 @@ class Packet(Layer):
     """
     Packet data relevant for p0f.
     """
+
     ip: IP
     tcp: TCP
 
@@ -52,10 +53,7 @@ class Packet(Layer):
 
     @classmethod
     def from_packet(cls, packet: ScapyPacket):
-        return cls(
-            IP.from_packet(packet),
-            TCP.from_packet(packet)
-        )
+        return cls(IP.from_packet(packet), TCP.from_packet(packet))
 
 
 def parse_packet(packet: PacketLike) -> Packet:

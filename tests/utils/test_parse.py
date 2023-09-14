@@ -7,7 +7,7 @@ from pyp0f.utils.parse import (
     split_parts,
     parse_from_options,
     parse_num_in_range,
-    range_num_parser
+    range_num_parser,
 )
 
 

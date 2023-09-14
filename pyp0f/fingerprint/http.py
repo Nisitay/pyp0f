@@ -11,8 +11,7 @@ from .results import HttpResult
 
 
 def headers_match(
-    sig_headers: Sequence[SigHeader],
-    pkt_headers: Sequence[PacketHeader]
+    sig_headers: Sequence[SigHeader], pkt_headers: Sequence[PacketHeader]
 ) -> bool:
     """
     Check the ordering and values of headers.
@@ -22,7 +21,7 @@ def headers_match(
     for header in sig_headers:
         orig_index = i
 
-        while (i < len(pkt_headers) and header.lower_name != pkt_headers[i].lower_name):
+        while i < len(pkt_headers) and header.lower_name != pkt_headers[i].lower_name:
             i += 1
 
         if i == len(pkt_headers):  # header not in packet headers
@@ -63,9 +62,7 @@ def signatures_match(sig: HttpSig, pkt_sig: HttpPacketSig) -> bool:
 
 
 def find_match(
-    pkt_sig: HttpPacketSig,
-    direction: Direction,
-    options: Options
+    pkt_sig: HttpPacketSig, direction: Direction, options: Options
 ) -> Optional[HttpRecord]:
     """
     Search through the database for a match for the given HTTP signature.

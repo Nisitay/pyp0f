@@ -11,6 +11,7 @@ class Database(RecordStorage):
     """
     ``RecordStorage`` wrapper to load records from a database file (p0f.fp)
     """
+
     def load(self, filepath: PathLike = DATABASE_PATH):
         """
         Load the p0f database from a database file (p0f.fp).

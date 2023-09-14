@@ -28,7 +28,7 @@ from tests._packets.tcp import (
         (WINDOWS_NT_KERNEL, "g:win:Windows:NT kernel"),
         (WINDOWS_7_OR_8_EXACT, "s:win:Windows:7 or 8"),
         (LINUX_26_SYN_ACK_ANOTHER, "s:unix:Linux:2.6.x"),
-    ]
+    ],
 )
 def test_fingerprint_exact(packet: Packet, expected_label: str):
     result = fingerprint(packet)

@@ -22,6 +22,7 @@ class Result(Generic[M, S], metaclass=ABCMeta):
     Fingerprint result, consisting of the origin packet, its' signature, and
     the match (if any)
     """
+
     packet: Packet
     packet_sig: S
     match: Optional[M] = None
@@ -47,6 +48,7 @@ class TcpMatch:
     """
     Match for a TCP fingerprint, consisting of the match type and matched record
     """
+
     type: TcpMatchType
     record: TcpRecord
 
@@ -61,6 +63,7 @@ class TcpResult(Result[TcpMatch, TcpPacketSig]):
     """
     TCP fingerprint result, including the estimated distance
     """
+
     distance: int = field(init=False)
 
     def __post_init__(self):
@@ -76,6 +79,7 @@ class HttpResult(Result[HttpRecord, HttpPacketSig]):
     """
     HTTP fingerprint result, including dishonest status
     """
+
     packet: BufferLike
     dishonest: bool = field(init=False)
 

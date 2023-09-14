@@ -9,7 +9,7 @@ from pyp0f.signatures.tcp import (
     _parse_ttl,
     _parse_quirks,
     _parse_options,
-    _parse_win_size
+    _parse_win_size,
 )
 
 

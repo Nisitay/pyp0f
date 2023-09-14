@@ -103,8 +103,10 @@ def fixed_options_parser(options: Dict[str, T]) -> Callable[[str], T]:
     Returns:
         Bound parser function
     """
+
     def parser(field: str) -> T:
         return parse_from_options(field, options)
+
     return parser
 
 
@@ -120,8 +122,10 @@ def range_num_parser(min: int, max: int, wildcard: bool) -> Callable[[str], int]
     Returns:
         Bound parser function
     """
+
     def parser(field: str) -> int:
         if wildcard and field == "*":
             return WILDCARD
         return parse_num_in_range(field, min, max)
+
     return parser

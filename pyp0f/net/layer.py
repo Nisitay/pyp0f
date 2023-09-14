@@ -7,7 +7,6 @@ T = TypeVar("T", bound="Layer")
 
 
 class Layer(metaclass=ABCMeta):
-
     @classmethod
     @abstractmethod
     def from_packet(cls: Type[T], packet: ScapyPacket) -> T:

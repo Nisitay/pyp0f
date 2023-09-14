@@ -5,14 +5,7 @@ from pyp0f.utils.path import PathLike
 from pyp0f.utils.parse import split_parts, fixed_options_parser, parsing_error_wrapper
 from pyp0f.exceptions import DatabaseError, ParsingError
 from pyp0f.net.packet import Direction
-from pyp0f.records import (
-    DatabaseLabel,
-    Label,
-    Record,
-    MtuRecord,
-    TcpRecord,
-    HttpRecord
-)
+from pyp0f.records import DatabaseLabel, Label, Record, MtuRecord, TcpRecord, HttpRecord
 
 from .storage import RecordStorage
 
@@ -27,16 +20,13 @@ class ParserState(Flag):
 SKIPPED_LINES = {";", "\n"}
 SKIPPED_PARAMS = {"classes", "ua_os"}
 
-_parse_section_type = fixed_options_parser({
-    "mtu": MtuRecord,
-    "tcp": TcpRecord,
-    "http": HttpRecord
-})
+_parse_section_type = fixed_options_parser(
+    {"mtu": MtuRecord, "tcp": TcpRecord, "http": HttpRecord}
+)
 
-_parse_direction = fixed_options_parser({
-    "request": Direction.CLI_TO_SRV,
-    "response": Direction.SRV_TO_CLI
-})
+_parse_direction = fixed_options_parser(
+    {"request": Direction.CLI_TO_SRV, "response": Direction.SRV_TO_CLI}
+)
 
 
 def parse_file(filepath: PathLike) -> RecordStorage:
@@ -105,7 +95,7 @@ def _parse_file(file: TextIO) -> RecordStorage:
                     label=label,
                     signature=record_cls._signature_cls.parse(val),  # type: ignore
                     raw_signature=val,
-                    line_no=line_no
+                    line_no=line_no,
                 )
 
             storage.add(record, direction)
@@ -144,5 +134,5 @@ def _parse_section(line: str) -> Tuple[Type[Record], Optional[Direction]]:
     section_type, direction = split_parts(line[1:-1], parts=2)
     return (
         _parse_section_type(section_type),
-        _parse_direction(direction) if direction else None
+        _parse_direction(direction) if direction else None,
     )

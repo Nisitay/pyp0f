@@ -18,13 +18,13 @@ class _MtuSig:
     """
     Common fields for database & packet MTU signatures.
     """
+
     mtu: int
 
 
 @add_slots
 @dataclass
 class MtuSig(DatabaseSig, _MtuSig):
-
     @classmethod
     def parse(cls, raw_signature: str):
         return cls(_parse_mtu(raw_signature))
@@ -33,7 +33,6 @@ class MtuSig(DatabaseSig, _MtuSig):
 @add_slots
 @dataclass
 class MtuPacketSig(PacketSig, _MtuSig):
-
     @classmethod
     def from_mss(cls, mss: int, ip_version: int):
         return cls(mss + (MIN_TCP4 if ip_version == IPV4 else MIN_TCP6))

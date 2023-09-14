@@ -7,5 +7,5 @@ def test_parse_headers():
         SigHeader(name=b"Host", is_optional=False),
         SigHeader(name=b"Cookies", is_optional=True),
         SigHeader(name=b"Accept", is_optional=False, value=b"*/*"),
-        SigHeader(name=b"Pragma", is_optional=True, value=b"no-cache")
+        SigHeader(name=b"Pragma", is_optional=True, value=b"no-cache"),
     ]

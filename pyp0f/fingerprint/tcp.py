@@ -25,9 +25,7 @@ def valid_for_fingerprint(packet: Packet) -> bool:
 
 
 def signatures_match(
-    sig: TcpSig,
-    pkt_sig: TcpPacketSig,
-    options: Options
+    sig: TcpSig, pkt_sig: TcpPacketSig, options: Options
 ) -> Optional[TcpMatchType]:
     """
     Check if TCP signatures match.
@@ -75,16 +73,21 @@ def signatures_match(
 
     # Simple wildcards
     if (
-        sig.mss != WILDCARD and sig.mss != pkt_sig.options.mss
-        or sig.win_scale != WILDCARD and sig.win_scale != pkt_sig.options.window_scale
-        or sig.payload_class != WILDCARD and sig.payload_class != pkt_sig.has_payload
+        sig.mss != WILDCARD
+        and sig.mss != pkt_sig.options.mss
+        or sig.win_scale != WILDCARD
+        and sig.win_scale != pkt_sig.options.window_scale
+        or sig.payload_class != WILDCARD
+        and sig.payload_class != pkt_sig.has_payload
     ):
         return None
 
     # Window size
     if (
-        sig.win_type == WinType.NORMAL and sig.win_size != pkt_sig.win_size
-        or sig.win_type == WinType.MOD and pkt_sig.win_size % sig.win_size
+        sig.win_type == WinType.NORMAL
+        and sig.win_size != pkt_sig.win_size
+        or sig.win_type == WinType.MOD
+        and pkt_sig.win_size % sig.win_size
         or (sig.win_type == WinType.MSS and (use_mtu or sig.win_size != win_multi))
         or (sig.win_type == WinType.MTU and (not use_mtu or sig.win_size != win_multi))
     ):
@@ -94,9 +97,7 @@ def signatures_match(
 
 
 def find_match(
-    pkt_sig: TcpPacketSig,
-    direction: Direction,
-    options: Options
+    pkt_sig: TcpPacketSig, direction: Direction, options: Options
 ) -> Optional[TcpMatch]:
     """
     Search through the database for a match for the given TCP signature.
@@ -134,9 +135,7 @@ def find_match(
 
 
 def fingerprint(
-    packet: PacketLike,
-    options: Options = OPTIONS,
-    syn_mss: Optional[int] = None
+    packet: PacketLike, options: Options = OPTIONS, syn_mss: Optional[int] = None
 ) -> TcpResult:
     """
     Fingerprint the given TCP packet.

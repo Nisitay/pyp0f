@@ -72,5 +72,5 @@ class TCP(Layer):
             options=options,
             payload=bytes(tcp.payload),
             header_length=header_length,
-            quirks=quirks
+            quirks=quirks,
         )

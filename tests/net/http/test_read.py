@@ -43,13 +43,13 @@ class TestReadHeaders:
     def test_read(self):
         assert self._read(b"Name1: value1\r\nName2: value2\r\n") == [
             PacketHeader(b"Name1", b"value1"),
-            PacketHeader(b"Name2", b"value2")
+            PacketHeader(b"Name2", b"value2"),
         ]
 
     def test_read_continued(self):
         assert self._read(b"Name: value\r\n" b"\tmore\r\n" b"nName2: value\r\n") == [
             PacketHeader(b"Name", b"value\r\n more"),
-            PacketHeader(b"nName2", b"value")
+            PacketHeader(b"nName2", b"value"),
         ]
 
     def test_read_continued_err(self):

@@ -29,6 +29,7 @@ class RecordStorage(Sized):
             ...
         }
     """
+
     def __init__(self, records: Optional[RecordsDict] = None):
         self._records: Dict[Type[Record], Any] = records or {}
 
@@ -36,9 +37,7 @@ class RecordStorage(Sized):
         self._records = other._records
 
     def _get(
-        self,
-        record_cls: Type[T],
-        direction: Optional[Direction] = None
+        self, record_cls: Type[T], direction: Optional[Direction] = None
     ) -> List[T]:
         """
         Get list of records and perform all logical checks.
@@ -99,9 +98,7 @@ class RecordStorage(Sized):
         )
 
     def __call__(
-        self,
-        record_cls: Type[T],
-        direction: Optional[Direction] = None
+        self, record_cls: Type[T], direction: Optional[Direction] = None
     ) -> Iterator[T]:
         """
         Safely iterate a list of records.

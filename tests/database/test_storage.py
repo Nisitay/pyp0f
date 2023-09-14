@@ -9,28 +9,19 @@ class TestRecordStorage:
     def test_create_list(self):
         storage = RecordStorage()
         storage.create("R")
-        assert storage._records == {
-            "R": []
-        }
+        assert storage._records == {"R": []}
 
     def test_create_directional_dict(self):
         storage = RecordStorage()
         storage.create("R", Direction.CLI_TO_SRV)
-        assert storage._records == {
-            "R": {
-                Direction.CLI_TO_SRV: []
-            }
-        }
+        assert storage._records == {"R": {Direction.CLI_TO_SRV: []}}
 
     def test_create_another_direction(self):
         storage = RecordStorage()
         storage.create("R", Direction.CLI_TO_SRV)
         storage.create("R", Direction.SRV_TO_CLI)
         assert storage._records == {
-            "R": {
-                Direction.CLI_TO_SRV: [],
-                Direction.SRV_TO_CLI: []
-            }
+            "R": {Direction.CLI_TO_SRV: [], Direction.SRV_TO_CLI: []}
         }
 
     def test_get_list(self):
@@ -63,17 +54,17 @@ class TestRecordStorage:
             storage._get("R", Direction.SRV_TO_CLI)
 
     def test_len(self):
-        storage = RecordStorage({
-            "R1": [1, 2, 3],
-            "R2": [4, 5],
-            "R3": {
-                Direction.CLI_TO_SRV: [6, 7, 8]
-            },
-            "R4": {
-                Direction.CLI_TO_SRV: [9, 10, 11],
-                Direction.SRV_TO_CLI: [12, 13],
-            },
-        })
+        storage = RecordStorage(
+            {
+                "R1": [1, 2, 3],
+                "R2": [4, 5],
+                "R3": {Direction.CLI_TO_SRV: [6, 7, 8]},
+                "R4": {
+                    Direction.CLI_TO_SRV: [9, 10, 11],
+                    Direction.SRV_TO_CLI: [12, 13],
+                },
+            }
+        )
         assert len(storage) == 13
 
     def test_safe_iter(self):
