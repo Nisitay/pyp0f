@@ -1,12 +1,12 @@
 from typing import Optional
 
+from pyp0f.database.records import MTURecord
+from pyp0f.database.signatures import MTUSignature
 from pyp0f.exceptions import PacketError
-from pyp0f.records import MtuRecord
-from pyp0f.options import Options, OPTIONS
-from pyp0f.signatures import MtuSig, MtuPacketSig
+from pyp0f.fingerprint.results import MTUResult
 from pyp0f.net.packet import Packet, PacketLike, parse_packet
-
-from .results import MtuResult
+from pyp0f.net.signatures import MTUPacketSignature
+from pyp0f.options import OPTIONS, Options
 
 
 def valid_for_fingerprint(packet: Packet) -> bool:
@@ -17,28 +17,32 @@ def valid_for_fingerprint(packet: Packet) -> bool:
     return packet.should_fingerprint and packet.tcp.options.mss > 0
 
 
-def signatures_match(sig: MtuSig, pkt_sig: MtuPacketSig) -> bool:
+def signatures_match(
+    signature: MTUSignature, packet_signature: MTUPacketSignature
+) -> bool:
     """
     Check if MTU signatures match by comparing their MTU values.
     """
-    return sig.mtu == pkt_sig.mtu
+    return signature.mtu == packet_signature.mtu
 
 
-def find_match(pkt_sig: MtuPacketSig, options: Options) -> Optional[MtuRecord]:
+def find_match(
+    packet_signature: MTUPacketSignature, options: Options
+) -> Optional[MTURecord]:
     """
     Search through the database for a match for the given MTU signature.
     """
     return next(
         (
             mtu_record
-            for mtu_record in options.database(MtuRecord)
-            if signatures_match(mtu_record.signature, pkt_sig)
+            for mtu_record in options.database.iter_values(MTURecord)
+            if signatures_match(mtu_record.signature, packet_signature)
         ),
         None,
     )
 
 
-def fingerprint(packet: PacketLike, options: Options = OPTIONS) -> MtuResult:
+def fingerprint(packet: PacketLike, options: Options = OPTIONS) -> MTUResult:
     """
     Fingerprint the given packet for MTU.
 
@@ -52,9 +56,13 @@ def fingerprint(packet: PacketLike, options: Options = OPTIONS) -> MtuResult:
     Returns:
         MTU fingerprint result
     """
-    pkt = parse_packet(packet)
-    if not valid_for_fingerprint(pkt):
+    parsed_packet = parse_packet(packet)
+
+    if not valid_for_fingerprint(parsed_packet):
         raise PacketError("Packet is invalid for MTU fingerprint")
 
-    pkt_sig = MtuPacketSig.from_packet(pkt)
-    return MtuResult(pkt, pkt_sig, find_match(pkt_sig, options))
+    packet_signature = MTUPacketSignature.from_packet(parsed_packet)
+
+    return MTUResult(
+        parsed_packet, packet_signature, find_match(packet_signature, options)
+    )

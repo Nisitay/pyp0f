@@ -1,12 +1,13 @@
 from dataclasses import dataclass
 
-from pyp0f.database import Database, DATABASE
+from pyp0f.database import DATABASE, Database
 
 
 @dataclass
 class Options:
     # p0f signatures database
     database: Database = DATABASE
+    """p0f signatures database"""
 
     # Maximum TTL distance for non-fuzzy signature matching.
     max_dist: int = 35

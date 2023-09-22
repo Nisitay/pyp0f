@@ -1,36 +1,40 @@
 from typing import Optional, Sequence
 
-from pyp0f.utils.parse import WILDCARD
-from pyp0f.records import HttpRecord
+from pyp0f.database.parse.utils import WILDCARD
+from pyp0f.database.records import HTTPRecord
+from pyp0f.database.signatures import HTTPSignature, SignatureHeader
+from pyp0f.fingerprint.results import HTTPResult
+from pyp0f.net.layers.http import BufferLike, PacketHeader, read_payload
 from pyp0f.net.packet import Direction
-from pyp0f.options import Options, OPTIONS
-from pyp0f.net.http import PacketHeader, SigHeader, BufferLike, read_payload
-from pyp0f.signatures.http import HttpSig, HttpPacketSig
-
-from .results import HttpResult
+from pyp0f.net.signatures import HTTPPacketSignature
+from pyp0f.options import OPTIONS, Options
 
 
 def headers_match(
-    sig_headers: Sequence[SigHeader], pkt_headers: Sequence[PacketHeader]
+    signature_headers: Sequence[SignatureHeader], packet_headers: Sequence[PacketHeader]
 ) -> bool:
     """
     Check the ordering and values of headers.
     """
     i = 0  # Index of packet header
 
-    for header in sig_headers:
+    for header in signature_headers:
         orig_index = i
 
-        while i < len(pkt_headers) and header.lower_name != pkt_headers[i].lower_name:
+        while (
+            i < len(packet_headers)
+            and header.lower_name != packet_headers[i].lower_name
+        ):
             i += 1
 
-        if i == len(pkt_headers):  # header not in packet headers
+        if i == len(packet_headers):  # header not in packet headers
             if not header.is_optional:
                 return False
 
             # Optional header -> check that it doesn't appear anywhere else
             if any(
-                header.lower_name == pkt_header.lower_name for pkt_header in pkt_headers
+                header.lower_name == pkt_header.lower_name
+                for pkt_header in packet_headers
             ):
                 return False
 
@@ -38,13 +42,15 @@ def headers_match(
             continue
 
         # Header found, validate values
-        if header.value is not None and header.value not in pkt_headers[i].value:
+        if header.value is not None and header.value not in packet_headers[i].value:
             return False
         i += 1
     return True
 
 
-def signatures_match(sig: HttpSig, pkt_sig: HttpPacketSig) -> bool:
+def signatures_match(
+    signature: HTTPSignature, packet_signature: HTTPPacketSignature
+) -> bool:
     """
     Check if HTTP signatures match by comparing the following criterias:
         - HTTP versions match.
@@ -52,25 +58,25 @@ def signatures_match(sig: HttpSig, pkt_sig: HttpPacketSig) -> bool:
         - Absent headers in signature don't appear in the packet.
         - Order and values of headers match (this is relatively slow).
     """
-    pkt_headers = pkt_sig.header_names()
+    packet_headers = packet_signature.header_names
     return (
-        (sig.version == WILDCARD or sig.version == pkt_sig.version)
-        and sig.header_names().issubset(pkt_headers)
-        and not sig.absent_headers.intersection(pkt_headers)
-        and headers_match(sig.headers, pkt_sig.headers)
+        (signature.version == WILDCARD or signature.version == packet_signature.version)
+        and signature.header_names.issubset(packet_headers)
+        and not signature.absent_headers.intersection(packet_headers)
+        and headers_match(signature.headers, packet_signature.headers)
     )
 
 
 def find_match(
-    pkt_sig: HttpPacketSig, direction: Direction, options: Options
-) -> Optional[HttpRecord]:
+    packet_signature: HTTPPacketSignature, direction: Direction, options: Options
+) -> Optional[HTTPRecord]:
     """
     Search through the database for a match for the given HTTP signature.
     """
-    generic_match: Optional[HttpRecord] = None
+    generic_match: Optional[HTTPRecord] = None
 
-    for http_record in options.database(HttpRecord, direction):
-        if not signatures_match(http_record.signature, pkt_sig):
+    for http_record in options.database.iter_values(HTTPRecord, direction):
+        if not signatures_match(http_record.signature, packet_signature):
             continue
 
         if not http_record.is_generic:
@@ -82,7 +88,7 @@ def find_match(
     return generic_match
 
 
-def fingerprint(buffer: BufferLike, options: Options = OPTIONS) -> HttpResult:
+def fingerprint(buffer: BufferLike, options: Options = OPTIONS) -> HTTPResult:
     """
     Fingerprint the given HTTP 1.x payload.
 
@@ -97,5 +103,8 @@ def fingerprint(buffer: BufferLike, options: Options = OPTIONS) -> HttpResult:
         HTTP fingerprint result
     """
     direction, version, headers = read_payload(buffer)
-    pkt_sig = HttpPacketSig(version, headers)
-    return HttpResult(buffer, pkt_sig, find_match(pkt_sig, direction, options))
+    packet_signature = HTTPPacketSignature(version, headers)
+
+    return HTTPResult(
+        buffer, packet_signature, find_match(packet_signature, direction, options)
+    )

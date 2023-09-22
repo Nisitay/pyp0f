@@ -2,15 +2,9 @@ import os
 import re
 from codecs import open
 
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 HERE = os.path.abspath(os.path.dirname(__file__))
-
-
-def read(*parts):
-    with open(os.path.join(HERE, *parts), "r", encoding="utf-8") as f:
-        return f.read()
-
 
 with open(os.path.join(HERE, "README.md"), encoding="utf-8") as f:
     long_description = f.read()
@@ -27,14 +21,14 @@ setup(
     description="p0f v3 written in Python",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/Nisitay/scapy-p0f",
+    url="https://github.com/Nisitay/pyp0f",
     author="Itay Margolin",
     author_email="itay62848@gmail.com",
     license="MIT",
     include_package_data=True,
     python_requires=">=3.7",
     packages=find_packages(include=["pyp0f", "pyp0f.*"]),
-    install_requires=["scapy>=2.4.5", "h11>=0.11"],
+    install_requires=["scapy>=2.4.5", "h11>=0.11", "typing-extensions>=4.3"],
     extras_require={"dev": ["pytest>=6.1.0"]},
     classifiers=[
         "License :: OSI Approved :: MIT License",

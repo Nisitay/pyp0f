@@ -1,10 +1,11 @@
-import pytest
 from typing import Sequence
 
-from pyp0f.net.http import PacketHeader, SigHeader
-from pyp0f.fingerprint.http import fingerprint, headers_match
+import pytest
 
-from tests._packets.http import WGET, NGINX, APACHE
+from pyp0f.database.signatures.http import SignatureHeader
+from pyp0f.fingerprint.http import fingerprint, headers_match
+from pyp0f.net.layers.http import PacketHeader
+from tests._packets import HTTP_PACKETS, HTTPTestPacket
 
 
 class TestHeadersMatch:
@@ -12,11 +13,13 @@ class TestHeadersMatch:
     def _match(headers: Sequence[PacketHeader]) -> bool:
         return headers_match(
             (
-                SigHeader(name=b"Server", is_optional=False),
-                SigHeader(name=b"Date", is_optional=False),
-                SigHeader(name=b"Content-Type", is_optional=False),
-                SigHeader(name=b"Content-Length", is_optional=True),
-                SigHeader(name=b"Connection", is_optional=False, value=b"keep-alive"),
+                SignatureHeader(name=b"Server", is_optional=False),
+                SignatureHeader(name=b"Date", is_optional=False),
+                SignatureHeader(name=b"Content-Type", is_optional=False),
+                SignatureHeader(name=b"Content-Length", is_optional=True),
+                SignatureHeader(
+                    name=b"Connection", is_optional=False, value=b"keep-alive"
+                ),
             ),
             headers,
         )
@@ -106,10 +109,10 @@ class TestHeadersMatch:
 
 
 @pytest.mark.parametrize(
-    ("buffer", "expected_label"),
-    [(WGET, "s:!:wget:"), (NGINX, "s:!:nginx:1.x"), (APACHE, "s:!:Apache:2.x")],
+    ("test_packet"),
+    HTTP_PACKETS,
 )
-def test_fingerprint(buffer: bytes, expected_label: str):
-    res = fingerprint(buffer)
-    assert res.match is not None
-    assert res.match.label.dump() == expected_label
+def test_fingerprint(test_packet: HTTPTestPacket):
+    result = fingerprint(test_packet.payload)
+    assert result.match is not None
+    assert result.match.label.dump() == test_packet.expected_label
