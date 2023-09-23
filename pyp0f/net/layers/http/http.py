@@ -4,13 +4,11 @@ from datetime import datetime
 from email.utils import parsedate_to_datetime
 from typing import Optional, Sequence
 
-from scapy.layers.inet import TCP as TCPLayer
-from scapy.packet import Packet as ScapyPacket
-
 from pyp0f.exceptions import PacketError
 from pyp0f.net.layers.base import Layer
 from pyp0f.net.layers.http.header import PacketHeader
 from pyp0f.net.layers.http.read import BufferLike, read_payload
+from pyp0f.net.scapy import ScapyPacket, ScapyTCP
 
 
 @dataclass
@@ -65,7 +63,7 @@ class HTTP(Layer):
 
     @classmethod
     def from_packet(cls, packet: ScapyPacket):
-        if TCPLayer not in packet:
+        if ScapyTCP not in packet:
             raise PacketError("Packet doesn't have an TCP layer!")
 
-        return cls.from_buffer(bytes(packet[TCPLayer].payload))
+        return cls.from_buffer(bytes(packet[ScapyTCP].payload))

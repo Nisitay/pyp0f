@@ -1,10 +1,9 @@
 from typing import Type, TypeVar
 
-from scapy.packet import Packet as ScapyPacket
-
 from pyp0f.net.layers.ip import IP, IPV4, IPV4_HEADER_LENGTH
 from pyp0f.net.layers.tcp import TCP, TCPFlag, TCPOptions
 from pyp0f.net.quirks import Quirk
+from pyp0f.net.scapy import ScapyPacket
 
 T = TypeVar("T", bound=ScapyPacket)
 

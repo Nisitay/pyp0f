@@ -1,3 +1,4 @@
+import random
 from typing import Iterator, List, MutableMapping, Optional, Sized, Type, TypeVar, Union
 
 from pyp0f.database.records import Record
@@ -45,6 +46,23 @@ class RecordsDatabase(Sized):
             )
 
         return value[direction]  # type: ignore
+
+    def get_random(
+        self, raw_label: str, key: Type[T], direction: Optional[Direction] = None
+    ) -> T:
+        """
+        Get a random value from list of values.
+        """
+        records: List[T] = [
+            record
+            for record in self.iter_values(key, direction)
+            if raw_label == record.label.dump()
+        ]
+
+        if not records:
+            raise DatabaseError(f"No matching record for {raw_label}")
+
+        return random.choice(records)
 
     def create(self, key: Type[Record], direction: Optional[Direction] = None) -> None:
         """

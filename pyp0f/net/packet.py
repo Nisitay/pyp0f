@@ -2,12 +2,11 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Tuple, Union
 
-from scapy.packet import Packet as ScapyPacket
-
 from pyp0f.exceptions import PacketError
 from pyp0f.net.layers.base import Layer
 from pyp0f.net.layers.ip import IP
 from pyp0f.net.layers.tcp import TCP, TCPFlag
+from pyp0f.net.scapy import ScapyPacket, copy_packet
 
 Address = Tuple[str, int]
 PacketLike = Union[ScapyPacket, "Packet"]
@@ -70,6 +69,6 @@ def parse_packet(packet: PacketLike) -> Packet:
     if isinstance(packet, Packet):
         return packet
     elif isinstance(packet, ScapyPacket):
-        return Packet.from_packet(packet)
+        return Packet.from_packet(copy_packet(packet, assemble=True))
     else:
         raise PacketError(f"Unsupported packet format {type(packet).__name__}.")

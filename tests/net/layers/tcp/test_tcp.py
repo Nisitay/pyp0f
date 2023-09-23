@@ -1,10 +1,9 @@
 import pytest
-from scapy.layers.inet import IP as IPv4
-from scapy.layers.inet import TCP as TCPLayer
 
 from pyp0f.exceptions import PacketError
 from pyp0f.net.layers.tcp import TCP, TCP_HEADER_LENGTH, TCPFlag, TCPOptions
 from pyp0f.net.quirks import Quirk
+from pyp0f.net.scapy import ScapyIPv4, ScapyTCP
 from tests.tutils import create_scapy_layer, tcp
 
 
@@ -17,11 +16,11 @@ class TestTCP:
 
     def test_from_packet(self):
         with pytest.raises(PacketError):
-            TCP.from_packet(IPv4())
+            TCP.from_packet(ScapyIPv4())
 
         layer = TCP.from_packet(
             create_scapy_layer(
-                TCPLayer,
+                ScapyTCP,
                 sport=80,
                 dport=8080,
                 seq=0,

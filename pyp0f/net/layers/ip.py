@@ -1,11 +1,8 @@
 from dataclasses import dataclass
 
-from scapy.layers.inet import IP as IPv4
-from scapy.layers.inet6 import IPv6
-from scapy.packet import Packet as ScapyPacket
-
 from pyp0f.exceptions import PacketError
 from pyp0f.net.quirks import Quirk
+from pyp0f.net.scapy import ScapyIPv4, ScapyIPv6, ScapyPacket
 
 from .base import Layer
 
@@ -33,15 +30,15 @@ class IP(Layer):
 
     @classmethod
     def from_packet(cls, packet: ScapyPacket):
-        if IPv4 in packet:
-            return cls._from_ipv4(packet[IPv4])
-        elif IPv6 in packet:
-            return cls._from_ipv6(packet[IPv6])
+        if ScapyIPv4 in packet:
+            return cls._from_ipv4(packet[ScapyIPv4])
+        elif ScapyIPv6 in packet:
+            return cls._from_ipv6(packet[ScapyIPv6])
         else:
             raise PacketError("Packet doesn't have an IP layer!")
 
     @classmethod
-    def _from_ipv4(cls, ip: IPv4):
+    def _from_ipv4(cls, ip: ScapyIPv4):
         quirks = Quirk(0)
 
         if ip.tos & (IP_TOS_CE | IP_TOS_ECT):
@@ -74,7 +71,7 @@ class IP(Layer):
         )
 
     @classmethod
-    def _from_ipv6(cls, ip: IPv6):
+    def _from_ipv6(cls, ip: ScapyIPv6):
         quirks = Quirk(0)
 
         if ip.fl:

@@ -1,13 +1,11 @@
 from dataclasses import dataclass
 
-from scapy.layers.inet import TCP as TCPLayer
-from scapy.packet import Packet as ScapyPacket
-
 from pyp0f.exceptions import PacketError
 from pyp0f.net.layers.base import Layer
 from pyp0f.net.layers.ip import IPV4_HEADER_LENGTH, IPV6_HEADER_LENGTH
 from pyp0f.net.layers.tcp import TCPFlag, TCPOptions
 from pyp0f.net.quirks import Quirk
+from pyp0f.net.scapy import ScapyPacket, ScapyTCP
 
 TCP_HEADER_LENGTH = 20
 
@@ -34,10 +32,10 @@ class TCP(Layer):
 
     @classmethod
     def from_packet(cls, packet: ScapyPacket):
-        if TCPLayer not in packet:
+        if ScapyTCP not in packet:
             raise PacketError("Packet doesn't have an TCP layer!")
 
-        tcp = packet[TCPLayer]
+        tcp = packet[ScapyTCP]
         flags: TCPFlag = TCPFlag(int(tcp.flags))
         header_length: int = tcp.dataofs * 4
         options_buffer = bytes(tcp)[TCP_HEADER_LENGTH:header_length]

@@ -1,8 +1,9 @@
 from abc import ABCMeta, abstractmethod
 from typing import Type
 
-from scapy.packet import Packet as ScapyPacket
 from typing_extensions import Self
+
+from pyp0f.net.scapy import ScapyPacket
 
 
 class Layer(metaclass=ABCMeta):

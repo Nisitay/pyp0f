@@ -1,7 +1,4 @@
 import pytest
-from scapy.layers.inet import IP as IPv4
-from scapy.layers.inet import TCP as TCPLayer
-from scapy.layers.inet6 import IPv6
 
 from pyp0f.exceptions import PacketError
 from pyp0f.net.layers.ip import (
@@ -13,22 +10,23 @@ from pyp0f.net.layers.ip import (
     IPV6_HEADER_LENGTH,
 )
 from pyp0f.net.quirks import Quirk
+from pyp0f.net.scapy import ScapyIPv4, ScapyIPv6, ScapyTCP
 
 from ...tutils import create_scapy_layer
 
 
 class TestIP:
     def test_from_packet(self):
-        IP.from_packet(create_scapy_layer(IPv4))
-        IP.from_packet(create_scapy_layer(IPv6))
+        IP.from_packet(create_scapy_layer(ScapyIPv4))
+        IP.from_packet(create_scapy_layer(ScapyIPv6))
 
         with pytest.raises(PacketError):
-            IP.from_packet(create_scapy_layer(TCPLayer))
+            IP.from_packet(create_scapy_layer(ScapyTCP))
 
     def test_from_ipv4(self):
         ip = IP._from_ipv4(
             create_scapy_layer(
-                IPv4,
+                ScapyIPv4,
                 src="1.1.1.1",
                 dst="2.2.2.2",
                 ttl=128,
@@ -55,7 +53,7 @@ class TestIP:
     def test_from_ipv6(self):
         ip = IP._from_ipv6(
             create_scapy_layer(
-                IPv6,
+                ScapyIPv6,
                 src="2001:1db8:85a3:0000:0000:8a2e:1370:7334",
                 dst="2001:1db8:85a3:0000:0000:8a2e:1370:7335",
                 hlim=128,
