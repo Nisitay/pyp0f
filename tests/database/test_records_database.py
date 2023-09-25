@@ -1,7 +1,9 @@
 import pytest
 
+from pyp0f.database.labels import MTULabel
 from pyp0f.database.records import HTTPRecord, MTURecord, TCPRecord
 from pyp0f.database.records_database import RecordsDatabase
+from pyp0f.database.signatures import MTUSignature
 from pyp0f.exceptions import DatabaseError
 from pyp0f.net.packet import Direction
 
@@ -54,10 +56,39 @@ class TestRecordsDatabase:
         with pytest.raises(DatabaseError):
             records._get(MTURecord, Direction.SERVER_TO_CLIENT)
 
+    def test_get_random(self):
+        record = MTURecord(MTULabel("Test"), MTUSignature(6), "6", 6)
+        records = RecordsDatabase(
+            {
+                MTURecord: [record],
+            }
+        )
+
+        assert records.get_random("Test", MTURecord) == record
+
+    def test_get_random_empty(self):
+        records = RecordsDatabase(
+            {
+                MTURecord: [],
+            }
+        )
+        with pytest.raises(DatabaseError):
+            records.get_random("Test", MTURecord)
+
     def test_iter_values(self):
-        records = RecordsDatabase()
+        records = RecordsDatabase(
+            {
+                MTURecord: [1, 2, 3],
+            }  # type: ignore
+        )
         for _ in records.iter_values(MTURecord):
             pass
+
+    def test_iter_values_not_found(self):
+        records = RecordsDatabase()
+        with pytest.raises(DatabaseError):
+            for _ in records.iter_values(MTURecord):
+                pass
 
     def test_len(self):
         records = RecordsDatabase(

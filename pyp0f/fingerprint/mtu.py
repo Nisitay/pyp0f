@@ -1,5 +1,6 @@
 from typing import Optional
 
+from pyp0f.database import Database
 from pyp0f.database.records import MTURecord
 from pyp0f.database.signatures import MTUSignature
 from pyp0f.exceptions import PacketError
@@ -27,7 +28,7 @@ def signatures_match(
 
 
 def find_match(
-    packet_signature: MTUPacketSignature, options: Options
+    packet_signature: MTUPacketSignature, database: Database
 ) -> Optional[MTURecord]:
     """
     Search through the database for a match for the given MTU signature.
@@ -35,7 +36,7 @@ def find_match(
     return next(
         (
             mtu_record
-            for mtu_record in options.database.iter_values(MTURecord)
+            for mtu_record in database.iter_values(MTURecord)
             if signatures_match(mtu_record.signature, packet_signature)
         ),
         None,
@@ -64,5 +65,5 @@ def fingerprint(packet: PacketLike, options: Options = OPTIONS) -> MTUResult:
     packet_signature = MTUPacketSignature.from_packet(parsed_packet)
 
     return MTUResult(
-        parsed_packet, packet_signature, find_match(packet_signature, options)
+        parsed_packet, packet_signature, find_match(packet_signature, options.database)
     )

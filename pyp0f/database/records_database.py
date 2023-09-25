@@ -90,8 +90,11 @@ class RecordsDatabase(Sized):
         """
         try:
             values = self._get(key, direction)
-        except DatabaseError:
-            values = []
+        except DatabaseError as e:
+            raise DatabaseError(
+                f"No values found for {key} {f'({direction})' if direction else ''}. "
+                "Make sure the database is loaded first."
+            ) from e
 
         return iter(values)
 

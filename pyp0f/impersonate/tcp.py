@@ -1,5 +1,5 @@
 import random
-from typing import Any, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple, TypeVar
 
 from scapy.packet import NoPayload, Raw
 
@@ -8,64 +8,70 @@ from pyp0f.database.parse.utils import WILDCARD
 from pyp0f.database.records import TCPRecord
 from pyp0f.database.signatures import TCPSignature, WindowType
 from pyp0f.impersonate.utils import random_string, validate_for_impersonation
-from pyp0f.net.layers.ip import IPV4
+from pyp0f.net.layers.ip import IPV6
 from pyp0f.net.layers.tcp import TCPFlag, TCPOption
 from pyp0f.net.packet import Direction
 from pyp0f.net.quirks import Quirk
 from pyp0f.net.scapy import ScapyIPv4, ScapyIPv6, ScapyPacket, ScapyTCP
 from pyp0f.options import OPTIONS
 
+T = TypeVar("T", bound=ScapyPacket)
 
-def _impersonate_ip(
-    ip: Union[ScapyIPv4, ScapyIPv6], signature: TCPSignature, extra_hops: int = 0
-) -> None:
-    if ip.version == IPV4:
-        ip.ttl = signature.ttl - extra_hops
 
-        if signature.ip_options_length != 0:
-            # FIXME: Non-zero IPv4 options not handled
-            pass
+def _impersonate_ip(ip: T, signature: TCPSignature, extra_hops: int = 0) -> T:
+    if ip.version == IPV6:
+        return ScapyIPv6(
+            src=ip.src,
+            dst=ip.dst,
+            hlim=signature.ttl - extra_hops,
+            fl=random.randrange(0x01, 2**20)
+            if Quirk.FLOW in signature.quirks
+            else 0x0,
+            tc=random.randrange(0x01, 0x04) if Quirk.ECN in signature.quirks else 0x0,
+        )
+
+    flags = ip.flags
+    identification = ip.id
+
+    if Quirk.DF in signature.quirks:
+        flags |= 0x02  # set DF flag
+
+        if Quirk.NZ_ID in signature.quirks:
+            # ID should not be zero, overwrite if not already positive
+            if identification == 0:
+                identification = random.randrange(0x01, 2**16)
         else:
-            ip.options = []
-
-        if Quirk.DF in signature.quirks:
-            ip.flags |= 0x02  # set DF flag
-
-            if Quirk.NZ_ID in signature.quirks:
-                # ID should not be zero, overwrite if not already positive
-                if ip.id == 0:
-                    ip.id = random.randrange(1, 2**16)
-            else:
-                ip.id = 0
-        else:
-            ip.flags &= ~(0x02)  # DF flag not set
-
-            if Quirk.ZERO_ID in signature.quirks:
-                ip.id = 0
-            elif ip.id == 0:
-                # ID should not be zero, overwrite if not already positive
-                ip.id = random.randrange(1, 2**16)
-
-        if Quirk.ECN in signature.quirks:
-            ip.tos |= random.randrange(0x01, 0x04)
-
-        if Quirk.NZ_MBZ in signature.quirks:
-            ip.flags |= 0x04
-        else:
-            ip.flags &= ~(0x04)
+            identification = 0
     else:
-        ip.hlim = signature.ttl - extra_hops
+        flags &= ~(0x02)  # DF flag not set
 
-        if Quirk.FLOW in signature.quirks:
-            ip.fl = random.randrange(1, 2**20)
+        if Quirk.ZERO_ID in signature.quirks:
+            identification = 0
+        elif identification == 0:
+            # ID should not be zero, overwrite if not already positive
+            identification = random.randrange(0x01, 2**16)
 
-        if Quirk.ECN in signature.quirks:
-            ip.tc |= random.randrange(0x01, 0x04)
+    if Quirk.NZ_MBZ in signature.quirks:
+        flags |= 0x04
+    else:
+        flags &= ~(0x04)
+
+    return ScapyIPv4(
+        src=ip.src,
+        dst=ip.dst,
+        frag=ip.frag,
+        proto=ip.proto,
+        flags=flags,
+        id=identification,
+        ttl=signature.ttl - extra_hops,
+        tos=random.randrange(0x01, 0x04) if Quirk.ECN in signature.quirks else 0x0,
+        options=[],  # FIXME: Non-zero IPv4 options not handled -> signature.ip_options_length != 0
+    )
 
 
 def _impersonate_options(
     tcp: ScapyTCP, signature: TCPSignature, uptime: Optional[int] = None
-) -> None:
+) -> List[Tuple[str, Any]]:
     tcp_type = tcp.flags & (TCPFlag.SYN | TCPFlag.ACK)  # SYN / SYN+ACK
 
     def int_only(val: Optional[int]):
@@ -164,74 +170,103 @@ def _impersonate_options(
         if impersonated_option is not None:
             options.append(impersonated_option)
 
-    tcp.options = options
+    return options
 
 
 def _impersonate_window(
-    tcp: ScapyTCP, signature: TCPSignature, mtu: int = 1500
-) -> None:
+    tcp: ScapyTCP,
+    signature: TCPSignature,
+    new_options: List[Tuple[str, Any]],
+    mtu: int = 1500,
+) -> int:
     if signature.window.type == WindowType.NORMAL:
-        tcp.window = signature.window.size
+        return signature.window.size
 
-    elif signature.window.type == WindowType.MSS:
-        mss = dict(tcp.options).get("MSS")
+    if signature.window.type == WindowType.MSS:
+        mss = dict(new_options).get("MSS")
 
         if mss is None:
-            raise ValueError("TCP window value requires MSS, and MSS option not set")
+            raise ValueError(
+                "TCP window value requires MSS, but MSS option is not set on packet"
+            )
 
-        tcp.window = mss * signature.window.size
+        return mss * signature.window.size
 
-    elif signature.window.type == WindowType.MOD:
-        tcp.window = signature.window.size * random.randrange(
+    if signature.window.type == WindowType.MOD:
+        return signature.window.size * random.randrange(
             1, 2**16 // signature.window.size
         )
 
-    elif signature.window.type == WindowType.MTU:
-        tcp.window = mtu * signature.window.size
+    if signature.window.type == WindowType.MTU:
+        return mtu * signature.window.size
+
+    # WindowType.ANY -> Return existing window
+    return tcp.window
 
 
-def _impersonate_flags(
+def _impersonate_tcp(
     tcp: ScapyTCP,
     signature: TCPSignature,
-) -> None:
-    if Quirk.ZERO_SEQ in signature.quirks:
-        tcp.seq = 0
-    elif tcp.seq == 0:
-        tcp.seq = random.randrange(1, 2**32)
+    mtu: int = 1500,
+    uptime: Optional[int] = None,
+) -> ScapyTCP:
+    seq = tcp.seq
+    ack = tcp.ack
+    flags = tcp.flags
+    urgptr = tcp.urgptr
+
+    if Quirk.ZERO_SEQ in signature.quirks:  # Must remove existing seq
+        seq = 0
+    elif seq == 0:  # Must have seq, generate random
+        seq = random.randrange(1, 2**32)
 
     if Quirk.NZ_ACK in signature.quirks:
-        tcp.flags &= ~(TCPFlag.ACK)  # ACK flag not set
-        if tcp.ack == 0:
-            tcp.ack = random.randrange(1, 2**32)
+        flags &= ~(TCPFlag.ACK)  # ACK flag not set
+        if ack == 0:  # Must have ack, generate random
+            ack = random.randrange(1, 2**32)
     elif Quirk.ZERO_ACK in signature.quirks:
-        tcp.flags |= TCPFlag.ACK  # ACK flag set
-        tcp.ack = 0
+        flags |= TCPFlag.ACK  # ACK flag set
+        ack = 0  # Must remove existing ack
 
     if Quirk.NZ_URG in signature.quirks:
-        tcp.flags &= ~(TCPFlag.URG)  # URG flag not set
-        if tcp.urgptr == 0:
-            tcp.urgptr = random.randrange(1, 2**16)
+        flags &= ~(TCPFlag.URG)  # URG flag not set
+        if urgptr == 0:  # Must have urgptr, generate random
+            urgptr = random.randrange(1, 2**16)
     elif Quirk.URG in signature.quirks:
-        tcp.flags |= TCPFlag.URG  # URG flag used
+        flags |= TCPFlag.URG  # URG flag used
 
     if Quirk.PUSH in signature.quirks:
-        tcp.flags |= TCPFlag.PSH  # PSH flag used
+        flags |= TCPFlag.PSH  # PSH flag used
     else:
-        tcp.flags &= ~(TCPFlag.PSH)  # PSH flag not set
+        flags &= ~(TCPFlag.PSH)  # PSH flag not set
+
+    options = _impersonate_options(tcp, signature, uptime)
+
+    return ScapyTCP(
+        sport=tcp.sport,
+        dport=tcp.dport,
+        seq=seq,
+        ack=ack,
+        flags=flags,
+        urgptr=urgptr,
+        options=options,
+        window=_impersonate_window(tcp, signature, options, mtu),
+    )
 
 
-def _impersonate_payload(
-    tcp: ScapyTCP,
-    signature: TCPSignature,
-) -> None:
-    """
-    Impersonate TCP payload if it is not specified as wildcard in the signature.
-    """
-    if signature.payload_class != WILDCARD:
-        if not signature.payload_class:
-            tcp.payload = NoPayload()
-        elif not tcp.payload:
-            tcp.payload = Raw(load=random_string(size=random.randint(1, 10)))
+def _impersonate_payload(tcp: ScapyTCP, signature: TCPSignature) -> ScapyPacket:
+    if signature.payload_class == WILDCARD:  # Any payload, return existing payload
+        return tcp.payload
+
+    if not signature.payload_class:  # Must remove existing payload
+        return NoPayload()
+
+    # Must have payload, generate random or return existing.
+    return (
+        tcp.payload
+        if tcp.payload
+        else Raw(load=random_string(size=random.randint(1, 10)))
+    )
 
 
 def impersonate(
@@ -245,19 +280,19 @@ def impersonate(
     database: Database = OPTIONS.database,
 ) -> ScapyPacket:
     """
-    Creates a new copied instance of `packet` and modifies it so that p0f will
+    Creates a new instance of `packet` with modified fields so that p0f will
     think it has been sent by a specific OS. Either `raw_label` or `raw_signature` is required.
 
     If `raw_signature` is specified, we use the signature.
-    signature format:
+    signature format (as appears in database):
         `{ip_ver}:{ttl}:{ip_opt_len}:{mss}:{window,wscale}:{opt_layout}:{quirks}:{pay_class}`
 
-    If `raw_label` is specified, we randomly pick a signature with a label
+    If only `raw_label` is specified, we randomly pick a signature with a label
     that matches `raw_label` (case sensitive!).
 
     Only TCP SYN/SYN+ACK packets are supported.
     """
-    packet = validate_for_impersonation(packet)
+    validate_for_impersonation(packet)
 
     tcp = packet[ScapyTCP]
     tcp_type = tcp.flags & (TCPFlag.SYN | TCPFlag.ACK)  # SYN / SYN+ACK
@@ -279,10 +314,8 @@ def impersonate(
     if signature.ip_version != WILDCARD and packet.version != signature.ip_version:
         raise ValueError("Can't convert between IPv4 and IPv6")
 
-    _impersonate_ip(packet, signature, extra_hops)
-    _impersonate_options(tcp, signature, uptime)
-    _impersonate_window(tcp, signature, mtu)
-    _impersonate_flags(tcp, signature)
-    _impersonate_payload(tcp, signature)
-
-    return packet
+    return (
+        _impersonate_ip(packet, signature, extra_hops)
+        / _impersonate_tcp(tcp, signature, mtu, uptime)
+        / _impersonate_payload(tcp, signature)
+    )

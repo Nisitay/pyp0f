@@ -1,5 +1,6 @@
 from typing import Optional, Sequence
 
+from pyp0f.database import Database
 from pyp0f.database.parse.utils import WILDCARD
 from pyp0f.database.records import HTTPRecord
 from pyp0f.database.signatures import HTTPSignature, SignatureHeader
@@ -68,14 +69,16 @@ def signatures_match(
 
 
 def find_match(
-    packet_signature: HTTPPacketSignature, direction: Direction, options: Options
+    packet_signature: HTTPPacketSignature,
+    direction: Direction,
+    database: Database,
 ) -> Optional[HTTPRecord]:
     """
     Search through the database for a match for the given HTTP signature.
     """
     generic_match: Optional[HTTPRecord] = None
 
-    for http_record in options.database.iter_values(HTTPRecord, direction):
+    for http_record in database.iter_values(HTTPRecord, direction):
         if not signatures_match(http_record.signature, packet_signature):
             continue
 
@@ -106,5 +109,7 @@ def fingerprint(buffer: BufferLike, options: Options = OPTIONS) -> HTTPResult:
     packet_signature = HTTPPacketSignature(version, headers)
 
     return HTTPResult(
-        buffer, packet_signature, find_match(packet_signature, direction, options)
+        buffer,
+        packet_signature,
+        find_match(packet_signature, direction, options.database),
     )

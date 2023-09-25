@@ -18,18 +18,18 @@ def impersonate(
     database: Database = OPTIONS.database,
 ) -> ScapyPacket:
     """
-    Creates a new copied instance of `packet` and modifies it so that p0f will
-    think it has been sent by a specific MTU. Either `raw_label` or `raw_signature` is required.
+    Modifies `packet` so that p0f will think it has been sent by a specific MTU.
+    Either `raw_label` or `raw_signature` is required.
 
     If `raw_signature` is specified, we use the signature.
-    signature format: `{mtu_value}`
+    signature format (as appears in database): `{mtu_value}`
 
-    If `raw_label` is specified, we randomly pick a signature with a label
+    If only `raw_label` is specified, we randomly pick a signature with a label
     that matches `raw_label` (case sensitive!).
 
     Only TCP packets are supported.
     """
-    packet = validate_for_impersonation(packet)
+    validate_for_impersonation(packet)
 
     tcp = packet[ScapyTCP]
 
