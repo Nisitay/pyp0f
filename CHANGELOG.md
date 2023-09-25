@@ -1,6 +1,6 @@
 # Release History
 
-## pyp0f 0.2.0
+## pyp0f 0.2.1
 
 * Added impersonation utility.
 
