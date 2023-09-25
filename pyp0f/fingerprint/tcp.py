@@ -1,16 +1,16 @@
 from typing import Optional
 
+from pyp0f.database.parse.utils import WILDCARD
+from pyp0f.database.records import TCPRecord
+from pyp0f.database.signatures import TCPSignature, WindowType
 from pyp0f.exceptions import PacketError
-from pyp0f.utils.parse import WILDCARD
-from pyp0f.net.ip import IPV4
-from pyp0f.net.tcp import TcpFlag
+from pyp0f.fingerprint.results import TCPMatch, TCPMatchType, TCPResult
+from pyp0f.net.layers.ip import IPV4
+from pyp0f.net.layers.tcp import TCPFlag
+from pyp0f.net.packet import Direction, Packet, PacketLike, parse_packet
 from pyp0f.net.quirks import Quirk
-from pyp0f.records import TcpRecord
-from pyp0f.options import Options, OPTIONS
-from pyp0f.signatures import TcpSig, TcpPacketSig, WinType
-from pyp0f.net.packet import Packet, Direction, PacketLike, parse_packet
-
-from .results import TcpMatchType, TcpMatch, TcpResult
+from pyp0f.net.signatures import TCPPacketSignature
+from pyp0f.options import OPTIONS, Options
 
 
 def valid_for_fingerprint(packet: Packet) -> bool:
@@ -19,74 +19,92 @@ def valid_for_fingerprint(packet: Packet) -> bool:
     SYN/SYN+ACK packets are valid for fingerprint.
     """
     return packet.should_fingerprint and packet.tcp.type in (
-        TcpFlag.SYN,
-        TcpFlag.SYN | TcpFlag.ACK,
+        TCPFlag.SYN,
+        TCPFlag.SYN | TCPFlag.ACK,
     )
 
 
 def signatures_match(
-    sig: TcpSig,
-    pkt_sig: TcpPacketSig,
-    options: Options
-) -> Optional[TcpMatchType]:
+    signature: TCPSignature, packet_signature: TCPPacketSignature, options: Options
+) -> Optional[TCPMatchType]:
     """
     Check if TCP signatures match.
     """
-    match_type: TcpMatchType = TcpMatchType.EXACT
-    win_multi, use_mtu = pkt_sig.window_multiplier
+    match_type: TCPMatchType = TCPMatchType.EXACT
 
-    if sig.options_layout != pkt_sig.options.layout:
+    if signature.options.layout != packet_signature.options.layout:
         return None
 
-    sig_quirks = sig.quirks
+    signature_quirks = signature.quirks
 
     # If the database signature has no IP version specified, remove
     # IPv6-specific quirks when matching IPv4 packets and vice versa.
-    if sig.ip_version == WILDCARD:
-        if pkt_sig.ip_version == IPV4:
-            sig_quirks &= ~(Quirk.FLOW)
+    if signature.ip_version == WILDCARD:
+        if packet_signature.ip_version == IPV4:
+            signature_quirks &= ~(Quirk.FLOW)
         else:
-            sig_quirks &= ~(Quirk.DF | Quirk.NZ_ID | Quirk.ZERO_ID)
+            signature_quirks &= ~(Quirk.DF | Quirk.NZ_ID | Quirk.ZERO_ID)
 
-    if sig_quirks != pkt_sig.quirks:
-        deleted = (sig_quirks ^ pkt_sig.quirks) & sig_quirks
-        added = (sig_quirks ^ pkt_sig.quirks) & pkt_sig.quirks
+    if signature_quirks != packet_signature.quirks:
+        deleted = (signature_quirks ^ packet_signature.quirks) & signature_quirks
+        added = (signature_quirks ^ packet_signature.quirks) & packet_signature.quirks
 
         # If there is a difference in quirks, but it's 'df' or 'id+' disappearing,
         # or 'id-' or 'ecn' appearing, allow a fuzzy match.
         if deleted & ~(Quirk.DF | Quirk.NZ_ID) or added & ~(Quirk.ZERO_ID | Quirk.ECN):
             return None
 
-        match_type = TcpMatchType.FUZZY_QUIRKS
+        match_type = TCPMatchType.FUZZY_QUIRKS
 
     # Fixed parameters.
     if (
-        sig.eol_pad_length != pkt_sig.options.eol_pad_length
-        or sig.ip_options_length != pkt_sig.ip_options_length
+        signature.options.eol_padding_length
+        != packet_signature.options.eol_padding_length
+        or signature.ip_options_length != packet_signature.ip_options_length
     ):
         return None
 
     # TTL matching, with a provision to allow fuzzy match.
-    if sig.is_bad_ttl:
-        if sig.ttl < pkt_sig.ttl:
+    if signature.is_bad_ttl:
+        if signature.ttl < packet_signature.ttl:
             return None
-    elif sig.ttl < pkt_sig.ttl or sig.ttl - pkt_sig.ttl > options.max_dist:
-        match_type = TcpMatchType.FUZZY_TTL
+    elif (
+        signature.ttl < packet_signature.ttl
+        or signature.ttl - packet_signature.ttl > options.max_dist
+    ):
+        match_type = TCPMatchType.FUZZY_TTL
 
     # Simple wildcards
     if (
-        sig.mss != WILDCARD and sig.mss != pkt_sig.options.mss
-        or sig.win_scale != WILDCARD and sig.win_scale != pkt_sig.options.window_scale
-        or sig.payload_class != WILDCARD and sig.payload_class != pkt_sig.has_payload
+        signature.options.mss != WILDCARD
+        and signature.options.mss != packet_signature.options.mss
+        or signature.window.scale != WILDCARD
+        and signature.window.scale != packet_signature.options.window_scale
+        or signature.payload_class != WILDCARD
+        and signature.payload_class != packet_signature.has_payload
     ):
         return None
 
     # Window size
     if (
-        sig.win_type == WinType.NORMAL and sig.win_size != pkt_sig.win_size
-        or sig.win_type == WinType.MOD and pkt_sig.win_size % sig.win_size
-        or (sig.win_type == WinType.MSS and (use_mtu or sig.win_size != win_multi))
-        or (sig.win_type == WinType.MTU and (not use_mtu or sig.win_size != win_multi))
+        signature.window.type == WindowType.NORMAL
+        and signature.window.size != packet_signature.window_size
+        or signature.window.type == WindowType.MOD
+        and packet_signature.window_size % signature.window.size
+        or (
+            signature.window.type == WindowType.MSS
+            and (
+                packet_signature.window_multiplier.is_mtu
+                or signature.window.size != packet_signature.window_multiplier.value
+            )
+        )
+        or (
+            signature.window.type == WindowType.MTU
+            and (
+                not packet_signature.window_multiplier.is_mtu
+                or signature.window.size != packet_signature.window_multiplier.value
+            )
+        )
     ):
         return None
 
@@ -94,25 +112,23 @@ def signatures_match(
 
 
 def find_match(
-    pkt_sig: TcpPacketSig,
-    direction: Direction,
-    options: Options
-) -> Optional[TcpMatch]:
+    packet_signature: TCPPacketSignature, direction: Direction, options: Options
+) -> Optional[TCPMatch]:
     """
     Search through the database for a match for the given TCP signature.
     """
-    fuzzy_match: Optional[TcpMatch] = None
-    generic_match: Optional[TcpMatch] = None
+    fuzzy_match: Optional[TCPMatch] = None
+    generic_match: Optional[TCPMatch] = None
 
-    for tcp_record in options.database(TcpRecord, direction):
-        match_type = signatures_match(tcp_record.signature, pkt_sig, options)
+    for tcp_record in options.database.iter_values(TCPRecord, direction):
+        match_type = signatures_match(tcp_record.signature, packet_signature, options)
 
         if match_type is None:
             continue
 
-        match = TcpMatch(match_type, tcp_record)
+        match = TCPMatch(match_type, tcp_record)
 
-        if match_type == TcpMatchType.EXACT:
+        if match_type == TCPMatchType.EXACT:
             if not tcp_record.is_generic:
                 return match
 
@@ -134,10 +150,8 @@ def find_match(
 
 
 def fingerprint(
-    packet: PacketLike,
-    options: Options = OPTIONS,
-    syn_mss: Optional[int] = None
-) -> TcpResult:
+    packet: PacketLike, options: Options = OPTIONS, syn_mss: Optional[int] = None
+) -> TCPResult:
     """
     Fingerprint the given TCP packet.
 
@@ -152,13 +166,21 @@ def fingerprint(
     Returns:
         TCP fingerprint result
     """
-    pkt = parse_packet(packet)
-    if not valid_for_fingerprint(pkt):
+    parsed_packet = parse_packet(packet)
+
+    if not valid_for_fingerprint(parsed_packet):
         raise PacketError("Packet is invalid for TCP fingerprint")
 
     direction = (
-        Direction.CLI_TO_SRV if pkt.tcp.type == TcpFlag.SYN else Direction.SRV_TO_CLI
+        Direction.CLIENT_TO_SERVER
+        if parsed_packet.tcp.type == TCPFlag.SYN
+        else Direction.SERVER_TO_CLIENT
     )
 
-    pkt_sig = TcpPacketSig.from_packet(pkt, syn_mss)
-    return TcpResult(pkt, pkt_sig, find_match(pkt_sig, direction, options))
+    packet_signature = TCPPacketSignature.from_packet(parsed_packet, syn_mss)
+
+    return TCPResult(
+        parsed_packet,
+        packet_signature,
+        find_match(packet_signature, direction, options),
+    )

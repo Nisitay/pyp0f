@@ -2,9 +2,9 @@ import os
 from pathlib import Path
 from typing import Union
 
-
 PathLike = Union[str, "os.PathLike[str]"]
 
+# /pyp0f/
 ROOT_DIR = Path(__file__).parent.parent
 
 

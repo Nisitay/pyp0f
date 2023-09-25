@@ -1,0 +1,52 @@
+[project]
+name = "pyp0f"
+description = "p0f v3 with impersonation spoofing, written in Python"
+readme = "README.md"
+requires-python = ">=3.7"
+license = { file = "LICENSE" }
+authors = [{ name = "Itay Margolin", email = "itay62848@gmail.com" }]
+dynamic = ["version"]
+
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Security",
+    "Topic :: Internet",
+    "Topic :: System :: Networking :: Monitoring",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+
+dependencies = ["h11>=0.11", "scapy>=2.4.5", "typing-extensions>=4.3"]
+
+[project.optional-dependencies]
+dev = ["pytest>=6.1.0"]
+
+[project.urls]
+Homepage = "https://github.com/Nisitay/pyp0f"
+Source = "https://github.com/Nisitay/pyp0f"
+Documentation = "https://github.com/Nisitay/pyp0f/blob/master/docs/README.md"
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.dynamic]
+version = { attr = "pyp0f.__init__.VERSION" }
+
+[tool.setuptools.packages.find]
+include = ["pyp0f", "pyp0f.*"]

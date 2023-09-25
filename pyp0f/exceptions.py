@@ -1,6 +1,6 @@
 class P0fError(Exception):
     """
-    Generic p0f error.
+    Base class for all exceptions thrown by pyp0f.
     """
 
 
@@ -27,6 +27,7 @@ class ParsingError(FieldError):
     Error while parsing the database.
     Includes the matching line number that the error relates to.
     """
-    def __init__(self, message: str, line_no: int):
-        super().__init__(f"Error in line {line_no}: {message}")
-        self.line_no = line_no
+
+    def __init__(self, message: str, line_number: int):
+        super().__init__(f"Error in line {line_number}: {message}")
+        self.line_number = line_number
