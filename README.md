@@ -26,10 +26,10 @@ $ pip install pyp0f
 ## Features
 - Full p0f fingerprinting (MTU, TCP, HTTP)
 - p0f spoofing - impersonation (MTU, TCP)
+- TCP timestamps uptime detection
 
 ## In Progress
 - Flow tracking
-- TCP uptime detection
 - NAT detection
 
 ## Getting Started

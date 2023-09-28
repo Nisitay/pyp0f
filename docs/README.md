@@ -132,6 +132,39 @@ print(result.match)
 
 </details>
 
+</details>
+
+<details markdown="1">
+<summary>TCP uptime fingerprinting example</summary>
+
+```python
+from scapy.layers.inet import IP, TCP
+from pyp0f.net.packet import parse_packet
+from pyp0f.net.signatures import TCPPacketSignature
+from pyp0f.fingerprint.uptime import fingerprint_uptime
+from pyp0f.utils.time import get_unix_time_ms
+
+last_timestamp = IP() / TCP(seq=1, options=[("Timestamp", (1545573, 0))])
+current_timestamp = IP() / TCP(seq=2, options=[("Timestamp", (1545586, 0))])
+
+last_packet_signature = TCPPacketSignature.from_packet(parse_packet(last_timestamp))
+
+# Simulate different receive time
+last_packet_signature.received = get_unix_time_ms() - 130
+
+result = fingerprint_uptime(current_timestamp, last_packet_signature)
+print(result.tps)  # 100
+print(result.uptime)
+# Uptime(
+#     raw_frequency=107.6923076923077,
+#     frequency=100,
+#     total_minutes=257,
+#     modulo_days=497
+# )
+```
+
+</details>
+
 ## Impersonation
 `pyp0f` provides functionality to modify Scapy packets so that `p0f` will think it has been sent by a specific OS.
 
@@ -175,7 +208,7 @@ result = fingerprint_tcp(impersonated_packet)  # TCPResult for "s:unix:OpenVMS:7
 </details>
 
 ## Real World Examples
-`pyp0f` can be used in real world scenarios, whether its to passivly fingerprint remote hosts,
+`pyp0f` can be used in real world scenarios, whether its to passively fingerprint remote hosts,
 or to deceive remote `p0f`.
 
 ### Sniff connection attempts

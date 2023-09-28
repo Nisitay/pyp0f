@@ -1,7 +1,7 @@
 """
 These packets come from a single capture, from the same host.
-We save the time difference between the captures of the first packet and the other,
-to simulate that difference in tests with time.sleep.
+We save the time difference between the captures of the first packet and the other for
+simulation in tests.
 """
 from .parse import from_hex
 
