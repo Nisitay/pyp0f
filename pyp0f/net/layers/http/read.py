@@ -13,29 +13,13 @@ CRLF = b"\r\n"
 HTTP_VERSION_PATTERN = re.compile(rb"^HTTP/1\.(?P<version>\d)$")
 
 
-def always_buffer(buf: BufferLike) -> ReceiveBuffer:
+def copy_buffer(buffer: BufferLike) -> ReceiveBuffer:
     """
-    Ensure the given buffer is a ``ReceiveBuffer`` object
-
-    Args:
-        buf: Buffer-like object
-
-    Raises:
-        TypeError: Invalid buffer type
-
-    Returns:
-        Buffer as a ``ReceiveBuffer``
+    Copy the given buffer to not modify passed buffer when extracting lines.
     """
-    if isinstance(buf, ReceiveBuffer):
-        return buf
-    elif isinstance(buf, (bytes, bytearray)):
-        buffer = ReceiveBuffer()
-        buffer += buf
-        return buffer
-    else:
-        raise TypeError(
-            f"Expected ReceiveBuffer/bytes/bytearray, but got {type(buf).__name__}."
-        )
+    buffer_copy = ReceiveBuffer()
+    buffer_copy += bytes(buffer)
+    return buffer_copy
 
 
 def extract_minor_version(http_version: bytes) -> int:
@@ -62,8 +46,7 @@ def extract_minor_version(http_version: bytes) -> int:
 def read_first_line(line: bytes) -> Tuple[Direction, int]:
     """
     Read first HTTP request/response line.
-    We only care about GET and HEAD requests, any other request type will
-    raise ``PacketError``
+    We only care about GET and HEAD requests, other request types raise `PacketError`.
 
     Args:
         line: First line of HTTP request/response
@@ -75,7 +58,7 @@ def read_first_line(line: bytes) -> Tuple[Direction, int]:
         Direction of the message, and the minor HTTP version
     """
     try:
-        parts = line.split(maxsplit=2)
+        parts = line.split(None, maxsplit=2)
 
         if parts[0] in (b"GET", b"HEAD"):
             direction = Direction.CLIENT_TO_SERVER
@@ -112,7 +95,12 @@ def read_headers(lines: Iterable[bytes]) -> List[PacketHeader]:
         if line[0] in b" \t":
             if not headers:
                 raise PacketError("Invalid headers")
-            headers[-1].value += CRLF + b" " + line.strip()  # continued header
+
+            # Continued header
+            headers[-1] = PacketHeader(
+                name=headers[-1].name,
+                value=headers[-1].value + CRLF + b" " + line.strip(),
+            )
         else:
             try:
                 name, value = line.split(b":", maxsplit=1)
@@ -142,11 +130,13 @@ def read_payload(
     Returns:
         Direction of the message, minor HTTP version, parsed headers
     """
-    lines = always_buffer(buffer).maybe_extract_lines()
+    lines = copy_buffer(buffer).maybe_extract_lines()
 
     if lines is None:
-        raise PacketError("Not an HTTP payload!")
+        raise PacketError("Not an HTTP payload, or payload not complete")
 
     lines = [bytes(line) for line in lines]
 
-    return (*read_first_line(lines[0]), read_headers(lines[1:]))
+    direction, minor_http_version = read_first_line(lines[0])
+
+    return direction, minor_http_version, read_headers(lines[1:])

@@ -11,5 +11,5 @@ from .base import Result
 @dataclass
 class MTUResult(Result[MTURecord, MTUPacketSignature]):
     """
-    MTU fingerprint result
+    MTU fingerprint result.
     """

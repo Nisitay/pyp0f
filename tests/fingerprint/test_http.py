@@ -3,7 +3,7 @@ from typing import Sequence
 import pytest
 
 from pyp0f.database.signatures.http import SignatureHeader
-from pyp0f.fingerprint.http import fingerprint, headers_match
+from pyp0f.fingerprint.http import fingerprint_http, headers_match
 from pyp0f.net.layers.http import PacketHeader
 from tests._packets import HTTP_PACKETS, HTTPTestPacket
 
@@ -112,7 +112,7 @@ class TestHeadersMatch:
     ("test_packet"),
     HTTP_PACKETS,
 )
-def test_fingerprint(test_packet: HTTPTestPacket):
-    result = fingerprint(test_packet.payload)
+def test_fingerprint_http(test_packet: HTTPTestPacket):
+    result = fingerprint_http(test_packet.payload)
     assert result.match is not None
     assert result.match.label.dump() == test_packet.expected_label

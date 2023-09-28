@@ -14,14 +14,14 @@ TSignature = TypeVar("TSignature", bound=PacketSignature)
 @dataclass
 class Result(Generic[TMatch, TSignature], metaclass=ABCMeta):
     """
-    Fingerprint result
+    Fingerprint result.
     """
 
     packet: Packet
-    """Origin packet"""
+    """Origin packet."""
 
     packet_signature: TSignature
-    """Origin packet signature"""
+    """Origin packet signature."""
 
     match: Optional[TMatch] = None
-    """Fingerprint match, if any"""
+    """Fingerprint match, if any."""

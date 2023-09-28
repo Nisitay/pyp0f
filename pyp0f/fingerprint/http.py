@@ -20,7 +20,7 @@ def headers_match(
     i = 0  # Index of packet header
 
     for header in signature_headers:
-        orig_index = i
+        original_index = i
 
         while (
             i < len(packet_headers)
@@ -34,12 +34,12 @@ def headers_match(
 
             # Optional header -> check that it doesn't appear anywhere else
             if any(
-                header.lower_name == pkt_header.lower_name
-                for pkt_header in packet_headers
+                header.lower_name == packet_header.lower_name
+                for packet_header in packet_headers
             ):
                 return False
 
-            i = orig_index
+            i = original_index
             continue
 
         # Header found, validate values
@@ -49,7 +49,7 @@ def headers_match(
     return True
 
 
-def signatures_match(
+def http_signatures_match(
     signature: HTTPSignature, packet_signature: HTTPPacketSignature
 ) -> bool:
     """
@@ -57,7 +57,7 @@ def signatures_match(
         - HTTP versions match.
         - All non-optional signature headers appear in the packet.
         - Absent headers in signature don't appear in the packet.
-        - Order and values of headers match (this is relatively slow).
+        - Order and values of headers match (relatively slow, hence why its last step).
     """
     packet_headers = packet_signature.header_names
     return (
@@ -68,7 +68,7 @@ def signatures_match(
     )
 
 
-def find_match(
+def find_http_match(
     packet_signature: HTTPPacketSignature,
     direction: Direction,
     database: Database,
@@ -79,7 +79,7 @@ def find_match(
     generic_match: Optional[HTTPRecord] = None
 
     for http_record in database.iter_values(HTTPRecord, direction):
-        if not signatures_match(http_record.signature, packet_signature):
+        if not http_signatures_match(http_record.signature, packet_signature):
             continue
 
         if not http_record.is_generic:
@@ -91,7 +91,7 @@ def find_match(
     return generic_match
 
 
-def fingerprint(buffer: BufferLike, options: Options = OPTIONS) -> HTTPResult:
+def fingerprint_http(buffer: BufferLike, *, options: Options = OPTIONS) -> HTTPResult:
     """
     Fingerprint the given HTTP 1.x payload.
 
@@ -111,5 +111,5 @@ def fingerprint(buffer: BufferLike, options: Options = OPTIONS) -> HTTPResult:
     return HTTPResult(
         buffer,
         packet_signature,
-        find_match(packet_signature, direction, options.database),
+        find_http_match(packet_signature, direction, options.database),
     )

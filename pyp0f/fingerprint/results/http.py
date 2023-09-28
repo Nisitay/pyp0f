@@ -12,11 +12,14 @@ from .base import Result
 @dataclass
 class HTTPResult(Result[HTTPRecord, HTTPPacketSignature]):
     """
-    HTTP fingerprint result
+    HTTP fingerprint result.
     """
 
     packet: BufferLike
+    """Origin HTTP payload."""
+
     dishonest: bool = field(init=False)
+    """Software string (User-Agent or Server) looks forged?"""
 
     def __post_init__(self):
         self.dishonest = (

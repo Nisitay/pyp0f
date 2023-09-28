@@ -3,10 +3,11 @@ from typing import List, Optional, Tuple
 
 from pyp0f.database.parse.wildcard import WILDCARD
 from pyp0f.net.layers.ip import IPV6
-from pyp0f.net.layers.tcp import MIN_TCP4, MIN_TCP6, TCPOptions
+from pyp0f.net.layers.tcp import MIN_TCP4, MIN_TCP6, TCPFlag, TCPOptions
 from pyp0f.net.packet import Packet
 from pyp0f.net.quirks import Quirk
 from pyp0f.utils.slots import add_slots
+from pyp0f.utils.time import get_unix_time_ms
 
 from .base import PacketSignature
 
@@ -31,10 +32,15 @@ class TCPPacketSignature(PacketSignature):
 
     has_payload: bool
     quirks: Quirk
-    syn_mss: Optional[int] = None
+    syn_mss: int
 
     # Cached window multiplier
     _window_multiplier: Optional[WindowMultiplier] = field(init=False)
+
+    received: int = field(default_factory=get_unix_time_ms)
+    """
+    Unix timestamp in milliseconds of when this signature was received.
+    """
 
     def __post_init__(self):
         # Since dataclass with slots and field(default=None) don't work,
@@ -42,7 +48,7 @@ class TCPPacketSignature(PacketSignature):
         self._window_multiplier = None
 
     @classmethod
-    def from_packet(cls, packet: Packet, syn_mss: Optional[int] = None):
+    def from_packet(cls, packet: Packet, syn_mss: int = 0):
         return cls(
             ip_version=packet.ip.version,
             ip_options_length=packet.ip.options_length,
@@ -52,7 +58,8 @@ class TCPPacketSignature(PacketSignature):
             headers_length=packet.ip.header_length + packet.tcp.header_length,
             has_payload=bool(packet.tcp.payload),
             quirks=packet.ip.quirks | packet.tcp.quirks,
-            syn_mss=syn_mss,
+            # If we got SYN MSS value but it is not on SYN+ACK, ignore
+            syn_mss=syn_mss if packet.tcp.type == TCPFlag.SYN | TCPFlag.ACK else 0,
         )
 
     @property
@@ -97,7 +104,7 @@ class TCPPacketSignature(PacketSignature):
         add_div(1500, use_mtu=True)
 
         # On SYN+ACKs, some systems use of the peer:
-        if self.syn_mss is not None:
+        if self.syn_mss:
             add_div(self.syn_mss)  # peer MSS
             add_div(self.syn_mss - 12)  # peer MSS - 12
 
