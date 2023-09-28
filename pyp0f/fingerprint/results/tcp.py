@@ -29,7 +29,7 @@ class TCPMatch:
 
     @property
     def is_fuzzy(self) -> bool:
-        """approximate match?"""
+        """Approximate match?"""
         return self.type != TCPMatchType.EXACT
 
 
