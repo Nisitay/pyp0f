@@ -63,7 +63,7 @@ class HTTP(Layer):
 
     @classmethod
     def from_packet(cls, packet: ScapyPacket):
-        if ScapyTCP not in packet:
-            raise PacketError("Packet doesn't have an TCP layer!")
+        if ScapyTCP not in packet or not packet[ScapyTCP].payload:
+            raise PacketError("Packet doesn't have an TCP layer or payload!")
 
         return cls.from_buffer(bytes(packet[ScapyTCP].payload))

@@ -37,8 +37,11 @@ class Packet(Layer):
     @property
     def should_fingerprint(self) -> bool:
         """
-        Packets with silly combination of TCP flags or with MF or non-zero fragment
-        offset specified should be ignored.
+        Should this packet be used by p0f?
+
+        We ignore packets with silly combination of TCP flags,
+        or any traffic with MF or non-zero fragment offset specified.
+        We can do enough just fingerprinting the non-fragmented traffic.
         """
         return (
             not self.ip.is_fragment

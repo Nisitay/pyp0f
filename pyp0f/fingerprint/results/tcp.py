@@ -18,17 +18,18 @@ class TCPMatchType(Enum):
 @dataclass
 class TCPMatch:
     """
-    Match for a TCP fingerprint
+    Match for a TCP fingerprint.
     """
 
     type: TCPMatchType
-    """Match type"""
+    """Match type."""
 
     record: TCPRecord
-    """Matched record"""
+    """Matched record."""
 
     @property
     def is_fuzzy(self) -> bool:
+        """Approximate match?"""
         return self.type != TCPMatchType.EXACT
 
 
@@ -36,11 +37,11 @@ class TCPMatch:
 @dataclass
 class TCPResult(Result[TCPMatch, TCPPacketSignature]):
     """
-    TCP fingerprint result
+    TCP fingerprint result.
     """
 
     distance: int = field(init=False)
-    """Estimated distance (TTL)"""
+    """Estimated distance (TTL)."""
 
     def __post_init__(self):
         self.distance = (
@@ -52,7 +53,7 @@ class TCPResult(Result[TCPMatch, TCPPacketSignature]):
 
 def guess_distance(ttl: int) -> int:
     """
-    Guess number of hops (distance) for a given packet ttl.
+    Figure out what the TTL distance might have been for a packet.
     """
     return next(
         (initial_ttl - ttl for initial_ttl in (32, 64, 128) if ttl <= initial_ttl),

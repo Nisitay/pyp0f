@@ -86,7 +86,7 @@ class RecordsDatabase(Sized):
         self, key: Type[T], direction: Optional[Direction] = None
     ) -> Iterator[T]:
         """
-        Safely iterate a list of values.
+        Iterate a list of values.
         """
         try:
             values = self._get(key, direction)

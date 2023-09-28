@@ -13,7 +13,7 @@ from pyp0f.net.signatures import TCPPacketSignature
 from pyp0f.options import OPTIONS, Options
 
 
-def valid_for_fingerprint(packet: Packet) -> bool:
+def valid_for_tcp_fingerprint(packet: Packet) -> bool:
     """
     Check if the given packet is valid for TCP fingerprint.
     SYN/SYN+ACK packets are valid for fingerprint.
@@ -24,7 +24,7 @@ def valid_for_fingerprint(packet: Packet) -> bool:
     )
 
 
-def signatures_match(
+def tcp_signatures_match(
     signature: TCPSignature, packet_signature: TCPPacketSignature, options: Options
 ) -> Optional[TCPMatchType]:
     """
@@ -40,10 +40,11 @@ def signatures_match(
     # If the database signature has no IP version specified, remove
     # IPv6-specific quirks when matching IPv4 packets and vice versa.
     if signature.ip_version == WILDCARD:
-        if packet_signature.ip_version == IPV4:
-            signature_quirks &= ~(Quirk.FLOW)
-        else:
-            signature_quirks &= ~(Quirk.DF | Quirk.NZ_ID | Quirk.ZERO_ID)
+        signature_quirks &= (
+            ~(Quirk.FLOW)
+            if packet_signature.ip_version == IPV4
+            else ~(Quirk.DF | Quirk.NZ_ID | Quirk.ZERO_ID | Quirk.NZ_MBZ)
+        )
 
     if signature_quirks != packet_signature.quirks:
         deleted = (signature_quirks ^ packet_signature.quirks) & signature_quirks
@@ -87,10 +88,14 @@ def signatures_match(
 
     # Window size
     if (
-        signature.window.type == WindowType.NORMAL
-        and signature.window.size != packet_signature.window_size
-        or signature.window.type == WindowType.MOD
-        and packet_signature.window_size % signature.window.size
+        (
+            signature.window.type == WindowType.NORMAL
+            and signature.window.size != packet_signature.window_size
+        )
+        or (
+            signature.window.type == WindowType.MOD
+            and packet_signature.window_size % signature.window.size
+        )
         or (
             signature.window.type == WindowType.MSS
             and (
@@ -111,7 +116,7 @@ def signatures_match(
     return match_type
 
 
-def find_match(
+def find_tcp_match(
     packet_signature: TCPPacketSignature, direction: Direction, options: Options
 ) -> Optional[TCPMatch]:
     """
@@ -121,7 +126,9 @@ def find_match(
     generic_match: Optional[TCPMatch] = None
 
     for tcp_record in options.database.iter_values(TCPRecord, direction):
-        match_type = signatures_match(tcp_record.signature, packet_signature, options)
+        match_type = tcp_signatures_match(
+            tcp_record.signature, packet_signature, options
+        )
 
         if match_type is None:
             continue
@@ -149,16 +156,16 @@ def find_match(
     return fuzzy_match
 
 
-def fingerprint(
-    packet: PacketLike, options: Options = OPTIONS, syn_mss: Optional[int] = None
+def fingerprint_tcp(
+    packet: PacketLike, *, syn_mss: int = 0, options: Options = OPTIONS
 ) -> TCPResult:
     """
     Fingerprint the given TCP packet.
 
     Args:
         packet: Packet to fingerprint
-        options: Fingerprint options. Defaults to OPTIONS.
         syn_mss: Value of MSS option in SYN packet, if known. Defaults to None.
+        options: Fingerprint options. Defaults to OPTIONS.
 
     Raises:
         PacketError: The packet is invalid for TCP fingerprint
@@ -166,21 +173,23 @@ def fingerprint(
     Returns:
         TCP fingerprint result
     """
-    parsed_packet = parse_packet(packet)
+    packet = parse_packet(packet)
 
-    if not valid_for_fingerprint(parsed_packet):
-        raise PacketError("Packet is invalid for TCP fingerprint")
+    if not valid_for_tcp_fingerprint(packet):
+        raise PacketError(
+            "Packet is invalid for TCP fingerprint. Packet must be SYN/SYN+ACK."
+        )
 
     direction = (
         Direction.CLIENT_TO_SERVER
-        if parsed_packet.tcp.type == TCPFlag.SYN
+        if packet.tcp.type == TCPFlag.SYN
         else Direction.SERVER_TO_CLIENT
     )
 
-    packet_signature = TCPPacketSignature.from_packet(parsed_packet, syn_mss)
+    packet_signature = TCPPacketSignature.from_packet(packet, syn_mss)
 
     return TCPResult(
-        parsed_packet,
+        packet,
         packet_signature,
-        find_match(packet_signature, direction, options),
+        find_tcp_match(packet_signature, direction, options),
     )
