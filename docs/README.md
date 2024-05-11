@@ -228,21 +228,23 @@ With `pyp0f.impersonate` we can spoof running p0f by impersonating a certain OS.
 
 In this case, I used Windows 10 with Ethernet, and impersonated Linux 2.2.x-3.x (barebone) with Google MTU.
 
-[Browser leaks (TCP/IP Fingerprint section)](https://browserleaks.com/ip):
+[Browser leaks (TCP/IP Fingerprint section)](https://browserleaks.com/ip) (Before on left, after on right):
 <div align="center">
     <img src="./images/browserleaks-normal.PNG">
     <img src="./images/browserleaks-spoof.PNG">
 </div>
 
-Local Ubuntu VM running p0f:
+Local Ubuntu VM running p0f (Before on left, after on right):
 <div align="center">
     <img src="./images/p0f-normal.PNG">
     <img src="./images/p0f-spoof.PNG">
 </div>
 
-We use `pydivert` to capture packets before they leave the network stack, create a new packet that impersonates an OS, and finally re-inject the impersonated packet back to the network stack to spoof p0f on the other end.
+We use `pydivert`/`netfilterqueue` to capture packets before they leave the network stack, create a new packet that impersonates an OS, and finally re-inject the impersonated packet back to the network stack to spoof p0f on the other end.
 
-See example [source code](../examples/impersonate/spoof-p0f.py)
+See Linux example [source code](../examples/impersonate/spoof-p0f-linux.py)
+
+See Windows example [source code](../examples/impersonate/spoof-p0f-windows.py)
 
 ## Performance benchmarks
 `pyp0f` includes a file to benchmark the main methods it provides - fingerprint, impersonate.
